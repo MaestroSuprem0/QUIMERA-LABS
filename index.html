@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QUIMERA LABS</title>
+<meta name="description" content="Equipos de laboratorio de química en 3D: explóralos, ármalos y opéralos antes de entrar al laboratorio.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Portada: encabezado + rejilla de equipos como fichas de laboratorio. Mismos tokens que los simuladores. */
+:root{
+  --bg:#FFFFFF; --surface:#FFFFFF; --ink:#15212C; --muted:#566874; --line:#D5DEE3; --soft:#F1F4F6;
+  --accent:#C2276F; --accent-soft:#F7DCE8; --glass:#BFE2EC;
+  --f-display:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-body);
+  padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;padding-block:48px 40px;display:flex;flex-direction:column;gap:40px}
+header{display:flex;flex-direction:column;gap:10px;border-bottom:1.5px solid var(--ink);padding-bottom:28px}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.eyebrow b{color:var(--accent);font-weight:500}
+h1{margin:0;font:800 clamp(40px,7vw,76px)/.95 var(--f-display);font-stretch:76%;letter-spacing:.01em;text-wrap:balance}
+.lead{margin:0;max-width:62ch;font-size:17px;color:var(--muted)}
+.modes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.modes span{font:600 12px/1 var(--f-display);font-stretch:85%;letter-spacing:.08em;text-transform:uppercase;border:1.5px solid var(--ink);border-radius:999px;padding:8px 12px}
+.modes span i{font:400 11px var(--f-mono);font-style:normal;opacity:.6;margin-right:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.card{display:flex;flex-direction:column;border:1.5px solid var(--ink);border-radius:12px;overflow:hidden;color:inherit;text-decoration:none;background:var(--surface);
+  transition:transform .15s ease,box-shadow .15s ease}
+.card:hover{transform:translate(-3px,-3px);box-shadow:6px 6px 0 var(--accent)}
+.card:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.art{background:var(--soft);border-bottom:1.5px solid var(--ink);aspect-ratio:16/10;display:grid;place-items:center;max-width:100%}
+.art svg{width:72%;height:auto;max-height:86%}
+.art svg *{vector-effect:non-scaling-stroke}
+.body{padding:18px 20px 20px;display:flex;flex-direction:column;gap:10px;flex:1}
+.num{font:500 12px/1 var(--f-mono);letter-spacing:.14em;color:var(--accent)}
+h2{margin:0;font:800 26px/1.05 var(--f-display);font-stretch:80%;text-transform:uppercase;letter-spacing:.02em;text-wrap:balance}
+.body p{margin:0;color:var(--muted);min-width:0}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:6px}
+.tags span{font:500 12px/1 var(--f-mono);background:var(--soft);border-radius:6px;padding:6px 8px}
+.go{font:700 13px/1 var(--f-display);font-stretch:85%;letter-spacing:.09em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;
+  border-top:1px solid var(--line);padding:14px 20px}
+.card:hover .go{color:var(--accent)}
+footer{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;border-top:1px solid var(--line);padding-top:20px;font-size:13.5px;color:var(--muted)}
+footer b{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion: reduce){.card{transition:none}.card:hover{transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow"><b>Proyecto QUIMERA</b> · Laboratorio virtual</span>
+    <h1>QUIMERA LABS</h1>
+    <p class="lead">Equipos de laboratorio de química en 3D. Conoce cada pieza, ármalos y ponlos a funcionar antes de entrar al laboratorio real.</p>
+    <div class="modes" aria-label="Modos de cada equipo"><span><i>1</i>Explorar</span><span><i>2</i>Ensamblar</span><span><i>3</i>Operar</span></div>
+  </header>
+
+  <main class="grid">
+    <a class="card" href="titulacion/">
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 200 125" fill="none" stroke="#15212C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="62" y="110" width="76" height="7" rx="2" fill="#2C3A48"/><line x1="128" y1="110" x2="128" y2="8"/>
+          <path d="M128 30 H100"/><rect x="95" y="26" width="10" height="8" rx="2" fill="#C94A3E"/>
+          <rect x="96" y="10" width="8" height="66" rx="3" fill="#BFE2EC"/><path d="M96 22h4M96 32h4M96 42h4M96 52h4M96 62h4"/>
+          <path d="M100 76 v8" /><rect x="102" y="74" width="9" height="4" rx="1" fill="#2E5B9A"/>
+          <rect x="74" y="98" width="52" height="12" rx="3" fill="#E6EBEE"/>
+          <path d="M94 84 h12 v4 l12 9 h-36 l12 -9 z" fill="#F4A3C6"/>
+        </svg>
+      </div>
+      <div class="body">
+        <span class="num">EQUIPO 01</span>
+        <h2>Titulación ácido-base</h2>
+        <p>Bureta, soporte, agitador magnético y matraz Erlenmeyer. Lee el menisco, titula hasta el viraje de la fenolftaleína y calcula la concentración de la muestra.</p>
+        <div class="tags"><span>pH calculado</span><span>Lectura del menisco</span><span>Muestra aleatoria</span></div>
+      </div>
+      <div class="go">Abrir equipo <span aria-hidden="true">→</span></div>
+    </a>
+
+    <a class="card" href="arrastre-vapor/">
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 200 125" fill="none" stroke="#15212C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="40" cy="72" r="16" fill="#A9D6E6"/><path d="M40 56 V30"/><path d="M42 40 H68 V78"/>
+          <path d="M30 92 l-6 20 M50 92 l6 20 M24 92 h32"/><path d="M40 112 v-10" stroke="#2F5BFF"/>
+          <circle cx="70" cy="90" r="14" fill="#E9F2EC"/><circle cx="66" cy="92" r="3" fill="#6BAA4A"/><circle cx="74" cy="88" r="3" fill="#4E8F3A"/>
+          <path d="M70 76 V64 Q72 58 80 58 L150 92" /><path d="M86 60 L146 88" stroke-width="7" stroke="#BFE2EC"/><path d="M86 60 L146 88"/>
+          <path d="M150 92 V100"/><rect x="138" y="100" width="24" height="16" rx="2" fill="#D6E9EE"/><rect x="138" y="100" width="24" height="3" fill="#E0A93B"/>
+        </svg>
+      </div>
+      <div class="body">
+        <span class="num">EQUIPO 02</span>
+        <h2>Destilación por arrastre de vapor</h2>
+        <p>Generador de vapor, balón con la muestra y refrigerante Liebig. Descubre por qué la mezcla destila bajo 100 °C y separa el aceite esencial en el embudo.</p>
+        <div class="tags"><span>Ley de Dalton</span><span>Tres plantas</span><span>Lima y Huancayo</span></div>
+      </div>
+      <div class="go">Abrir equipo <span aria-hidden="true">→</span></div>
+    </a>
+
+    <a class="card" href="soxhlet/">
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 200 125" fill="none" stroke="#15212C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M70 102 a30 14 0 0 0 60 0 v14 h-60 z" fill="#3A4652"/>
+          <circle cx="100" cy="94" r="14" fill="#F2E7B8"/>
+          <rect x="91" y="44" width="18" height="34" rx="3" fill="#E8F2F5"/><rect x="94" y="52" width="12" height="22" rx="1" fill="#EFE4CC"/>
+          <path d="M100 80 v-2"/><path d="M109 74 h6 V46 h-6"/><path d="M91 74 h-5 V54 h-4 V80 Q82 84 97 82"/>
+          <path d="M100 44 V6"/><circle cx="100" cy="14" r="5" fill="#BFE2EC"/><circle cx="100" cy="24" r="5" fill="#BFE2EC"/><circle cx="100" cy="34" r="5" fill="#BFE2EC"/>
+          <line x1="140" y1="116" x2="140" y2="6"/>
+        </svg>
+      </div>
+      <div class="body">
+        <span class="num">EQUIPO 03</span>
+        <h2>Extracción Soxhlet</h2>
+        <p>Manta calefactora, extractor con sifón y refrigerante de bolas. Observa los ciclos del sifón y determina el porcentaje de grasa de una semilla por gravimetría.</p>
+        <div class="tags"><span>Ciclos del sifón</span><span>Gravimetría</span><span>Maní, sacha inchi, quinua</span></div>
+      </div>
+      <div class="go">Abrir equipo <span aria-hidden="true">→</span></div>
+    </a>
+  </main>
+
+  <footer>
+    <span><b>QUIMERA</b>: Química, Innovación, Modelado, Experimentación, Recursos, Aprendizaje.</span>
+    <span>Funciona mejor en computadora y necesita conexión a internet.</span>
+  </footer>
+</div>
+</body>
+</html>
