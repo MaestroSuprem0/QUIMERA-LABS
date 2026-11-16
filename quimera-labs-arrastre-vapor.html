@@ -1,0 +1,1058 @@
+<title>QUIMERA LABS Arrastre de Vapor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: banco de laboratorio a pantalla completa (escena 3D) + cuaderno de práctica a la derecha; en móvil se apilan. */
+:root{
+  --bg:#FFFFFF; --surface:#FFFFFF; --ink:#15212C; --muted:#566874; --line:#D5DEE3;
+  --accent:#C2276F; --accent-soft:#F7DCE8; --ok:#23794E; --warn:#9A5B00;
+  --ink3d:#15212C; --grid:#D3DCE1; --glass:#BFE2EC; --bench:#F1F4F6; --glassink:#15212C; --water:#8EC9DE; --oil:#E0A93B; --leaf:#5E9E45; color-scheme:light;
+  --f-display:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;min-height:0}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;justify-content:space-between;
+  padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-bottom:1px solid var(--line)}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.eyebrow b{color:var(--accent);font-weight:500}
+h1{margin:0;font-family:var(--f-display);font-stretch:78%;font-weight:800;font-size:clamp(22px,3vw,30px);letter-spacing:.01em;line-height:1.05;text-wrap:balance}
+.modes{display:flex;border:1.5px solid var(--ink);border-radius:999px;padding:3px;gap:2px;background:var(--surface)}
+.modes button{font:600 13px/1 var(--f-display);font-stretch:85%;letter-spacing:.08em;text-transform:uppercase;border:0;background:transparent;color:var(--ink);
+  padding:9px 14px;border-radius:999px;cursor:pointer;display:flex;gap:7px;align-items:center}
+.modes button .n{font-family:var(--f-mono);font-weight:400;opacity:.6}
+.modes button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.modes button:focus-visible,.tool:focus-visible,.btn:focus-visible,.seg button:focus-visible,.chip:focus-visible,.dot:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+main{display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:0}
+.stage{position:relative;overflow:hidden;min-height:0;touch-action:none}
+.stage canvas{display:block;width:100%;height:100%}
+#overlay{position:absolute;inset:0;pointer-events:none}
+#overlay svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.leader{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 4}
+.tie{fill:none;stroke:var(--ink);stroke-width:1.5}
+.dot{position:absolute;left:0;top:0;pointer-events:auto;width:18px;height:18px;border-radius:50%;border:0;padding:0;cursor:pointer;background:var(--surface);
+  box-shadow:0 0 0 2px var(--ink),inset 0 0 0 4px var(--surface),inset 0 0 0 9px var(--accent)}
+.dot.sel{box-shadow:0 0 0 2px var(--accent),inset 0 0 0 4px var(--surface),inset 0 0 0 9px var(--accent)}
+.tag{position:absolute;left:0;top:0;pointer-events:auto;font:700 11.5px/1 var(--f-display);font-stretch:85%;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;
+  background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);border-radius:6px;padding:6px 8px;cursor:pointer}
+.tag.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.locked .toolbar{display:none}
+.meters{display:flex;flex-direction:column;gap:10px}
+.mrow{display:flex;flex-direction:column;gap:5px;font-size:13.5px}
+.meter{height:12px;border:1.5px solid var(--ink);border-radius:6px;overflow:hidden;display:flex;background:var(--surface)}
+.meter i{display:block;height:100%;transition:width .3s}
+.meter i.w{background:var(--water)} .meter i.o{background:var(--oil)} .meter i.g{background:var(--leaf)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.rin-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rin-row .seg{flex:1;min-width:180px}
+.res{width:100%;border-collapse:collapse;font-size:13.5px}
+.res td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.res td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.tag-ok{color:var(--ok);font-weight:600}.tag-warn{color:var(--warn);font-weight:600}
+.calc{font-family:var(--f-mono);font-size:12.5px;background:var(--accent-soft);border-radius:8px;padding:10px 12px;line-height:1.75;margin-top:8px}
+.calc .note{font-family:var(--f-body)}
+details.ph summary{cursor:pointer;font-size:13.5px;color:var(--muted)}
+.btn:disabled:hover{background:transparent;color:var(--ink)}
+.labels-off .tag,.labels-off .tie{display:none}
+.hdr-right{display:flex;gap:10px;align-items:center}
+.theme{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--ink);background:var(--surface);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.theme svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.theme:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.popup{position:absolute;top:16px;left:16px;width:min(300px,calc(100% - 32px));background:var(--surface);border:1.5px solid var(--ink);border-radius:10px;
+  padding:14px 16px;box-shadow:6px 6px 0 var(--line);display:flex;flex-direction:column;gap:8px}
+.popup h3{margin:0;font:800 17px/1.15 var(--f-display);font-stretch:80%;letter-spacing:.04em;text-transform:uppercase;padding-right:28px}
+.popup p{margin:0;color:var(--muted);font-size:14px}
+.popup .x{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;background:transparent;color:var(--ink);cursor:pointer;font-size:18px;border-radius:6px}
+.btn{align-self:flex-start;font:700 12px/1 var(--f-display);font-stretch:85%;letter-spacing:.09em;text-transform:uppercase;border:1.5px solid var(--ink);
+  background:transparent;color:var(--ink);border-radius:7px;padding:9px 12px;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.btn:hover{background:var(--ink);color:var(--surface)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.toolbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:2px;
+  background:var(--surface);border:1.5px solid var(--ink);border-radius:12px;padding:4px}
+.tool{width:38px;height:36px;border:0;border-radius:8px;background:transparent;color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.tool:hover{background:var(--accent-soft)}
+.tool[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.tool svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sep{width:1px;background:var(--line);margin:6px 3px}
+.toast{position:absolute;left:16px;right:16px;bottom:calc(66px + env(safe-area-inset-bottom,0px));margin-inline:auto;width:fit-content;max-width:min(520px,calc(100% - 32px));
+  background:var(--ink);color:var(--surface);border-radius:8px;padding:9px 14px;font-size:14px;text-align:center;transition:opacity .25s}
+.toast.warn{background:var(--warn);color:#fff}
+.toast.ok{background:var(--ok);color:#fff}
+.hint{position:absolute;right:16px;top:14px;font-family:var(--f-mono);font-size:11.5px;color:var(--muted);text-align:right;line-height:1.6}
+
+aside{border-left:1px solid var(--line);background:var(--surface);overflow-y:auto;min-height:0;min-width:0;
+  padding-block:20px 28px;padding-left:20px;padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+aside h2{margin:0;font:800 24px/1.1 var(--f-display);font-stretch:78%;letter-spacing:.02em;text-transform:uppercase;text-wrap:balance}
+aside h4{margin:0 0 4px;font:700 11.5px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+aside p{margin:0}
+.lead{color:var(--muted)}
+.spec{font-family:var(--f-mono);font-size:12.5px;border:1px dashed var(--line);border-radius:6px;padding:8px 10px;color:var(--ink)}
+.block{display:flex;flex-direction:column;gap:4px}
+.block.err{border-left:3px solid var(--warn);padding-left:12px}
+.block.err h4{color:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:600 12.5px/1 var(--f-body);border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:7px 11px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.steps li{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start;padding:9px 0;border-bottom:1px solid var(--line)}
+.steps .st{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font:500 11px/1 var(--f-mono);color:var(--muted)}
+.steps li.done .st{background:var(--ok);border-color:var(--ok);color:#fff}
+.steps li.next .st{border-color:var(--accent);color:var(--accent)}
+.steps li.next b{color:var(--accent)}
+.steps li.locked{opacity:.55}
+.steps small{display:block;color:var(--muted);font-size:13px}
+.progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.ctl{display:flex;flex-direction:column;gap:8px}
+.seg{display:flex;border:1.5px solid var(--ink);border-radius:9px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink);font:600 13px/1 var(--f-body);padding:10px 6px;cursor:pointer}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.reading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border:1.5px solid var(--ink);border-radius:9px;padding:12px 14px}
+.reading .v{font:500 30px/1 var(--f-mono);font-variant-numeric:tabular-nums}
+.reading .u{font:500 13px var(--f-mono);color:var(--muted)}
+.swatch{display:flex;gap:10px;align-items:center}
+.swatch i{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--ink);flex:none}
+.state{border-radius:8px;padding:10px 12px;background:var(--accent-soft);font-size:14px}
+.state.warn{background:transparent;border:1.5px solid var(--warn)}
+.state.ok{background:transparent;border:1.5px solid var(--ok)}
+.note{font-size:13px;color:var(--muted)}
+.loading{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+
+@media (max-width:860px){
+  .app{height:auto}
+  main{grid-template-columns:1fr}
+  .stage{height:62vh;min-height:430px}
+  aside{border-left:0;border-top:1px solid var(--line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .hint{display:none}
+  .modes button{padding:9px 11px}
+}
+@media (prefers-reduced-motion: reduce){ .progress i,.toast{transition:none} }
+</style>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <span class="eyebrow"><b>QUIMERA LABS</b> · Equipo 02</span>
+      <h1>Destilación por arrastre de vapor</h1>
+    </div>
+    <div class="hdr-right">
+    <nav class="modes" aria-label="Modo">
+      <button data-mode="explorar" aria-pressed="true"><span class="n">1</span>Explorar</button>
+      <button data-mode="ensamblar" aria-pressed="false"><span class="n">2</span>Ensamblar</button>
+      <button data-mode="operar" aria-pressed="false"><span class="n">3</span>Operar</button>
+    </nav>
+    </div>
+  </header>
+  <main>
+    <section class="stage" id="stage" aria-label="Modelo 3D del montaje">
+      <div class="loading" id="loading">Montando el equipo…</div>
+      <div id="overlay"><svg aria-hidden="true"><path class="tie" id="ties" d=""></path><path class="leader" id="leader" d=""></path></svg></div>
+      <div class="popup" id="popup" hidden>
+        <button class="x" id="popClose" aria-label="Cerrar">×</button>
+        <h3 id="popTitle"></h3>
+        <p id="popText"></p>
+        <button class="btn" id="popZoom"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Acercar</button>
+      </div>
+      <div class="hint" id="hint">Arrastra para girar · rueda para zoom<br>clic derecho para desplazar</div>
+      <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+      <div class="toolbar" role="toolbar" aria-label="Vista">
+        <button class="tool" id="tRotL" title="Girar a la izquierda" aria-label="Girar a la izquierda"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4h4"/></svg></button>
+        <button class="tool" id="tRotR" title="Girar a la derecha" aria-label="Girar a la derecha"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4h-4"/></svg></button>
+        <span class="sep"></span>
+        <button class="tool" id="tOut" title="Alejar" aria-label="Alejar"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <button class="tool" id="tIn" title="Acercar" aria-label="Acercar"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button>
+        <span class="sep"></span>
+        <button class="tool" id="tHome" title="Vista inicial" aria-label="Vista inicial"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
+        <button class="tool" id="tLabels" title="Mostrar etiquetas" aria-label="Mostrar etiquetas" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 12h3M9 7h12v10H9z"/><circle cx="4" cy="12" r="1.5"/></svg></button>
+      </div>
+    </section>
+    <aside id="panel" aria-live="polite"></aside>
+  </main>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* =====================================================================
+   1) MANIFIESTO DEL EQUIPO — destilación por arrastre de vapor.
+   Comparado con la titulación, cambia esta sección, la 4 (piezas) y el
+   modo Operar. El núcleo (3, 5, 6) y Explorar/Ensamblar son los mismos.
+   ===================================================================== */
+const EQUIPO = {
+  id: 'arrastre-vapor',
+  partes: {
+    soportes: { nombre:'Soportes universales y pinzas', tag:'Soportes y pinzas', corto:'Dos soportes con nuez y pinza: uno sujeta el balón de la muestra, otro el refrigerante.',
+      funcion:'Fijan las piezas de vidrio para que el montaje no dependa de los tapones: una unión de vidrio con tapón no aguanta peso ni torsión.',
+      uso:'Sujeta el balón por el cuello y el refrigerante por su centro, sin apretar de más. Las varillas van detrás del montaje.',
+      error:'Dejar el refrigerante colgando solo de los tapones: la unión cede y el vidrio se rompe.',
+      dato:'Pinzas de tres dedos con funda de goma · nuez doble', requiere:[] },
+    tripode: { nombre:'Trípode y tela metálica', corto:'Soporte de tres patas con una malla que reparte el calor de la llama.',
+      funcion:'Sostiene el generador sobre el mechero. La tela con centro cerámico reparte la llama para que el vidrio no se caliente en un solo punto.',
+      uso:'Centra la tela sobre el trípode; el fondo del balón debe apoyarse en el disco cerámico.',
+      error:'Calentar el balón directo a la llama, sin tela: el calentamiento puntual puede quebrar el vidrio.',
+      dato:'Hierro · tela de acero con centro cerámico', requiere:[] },
+    mechero: { nombre:'Mechero Bunsen', corto:'Quemador de gas: la fuente de calor del generador.',
+      funcion:'Calienta el agua del generador hasta que hierve. El anillo inferior regula el aire: con aire la llama es azul y caliente; sin aire, amarilla y con hollín.',
+      uso:'Abre primero el agua del refrigerante. Acerca la llama del encendedor a la boca y luego abre el gas. Ajusta hasta ver un cono azul.',
+      error:'Abrir el gas antes de tener la llama lista: el gas se acumula y la ignición es brusca.',
+      dato:'La zona más caliente está justo encima del cono azul interior', requiere:['tripode'] },
+    gas: { nombre:'Llave de gas', corto:'Válvula de la línea de gas del laboratorio.', sub:'mechero',
+      funcion:'Corta o abre el suministro al mechero. Es lo primero que se cierra ante una emergencia.',
+      uso:'Manija paralela a la tubería: abierta. Perpendicular: cerrada. Al terminar ciérrala aquí, no solo en el mechero.',
+      error:'Apagar el mechero y dejar la llave de la línea abierta.',
+      dato:'Manguera de látex o silicona apta para gas' },
+    generador: { nombre:'Generador de vapor', corto:'Balón con agua que, al hervir, produce el vapor de arrastre.',
+      funcion:'Produce vapor de forma continua. Ese vapor atraviesa la planta y arrastra los aceites esenciales, que son volátiles y no se mezclan con el agua.',
+      uso:'Llénalo hasta la mitad, como mucho dos tercios, y añade piedras de ebullición para que hierva sin sacudidas.',
+      error:'Llenarlo de más: el agua hirviendo sube por el tubo de vapor y llega líquida a la muestra.',
+      dato:'Balón de fondo redondo 500–1000 mL · borosilicato', requiere:['tripode'] },
+    seguridad: { nombre:'Tubo de seguridad', corto:'Tubo largo y abierto que se sumerge en el agua del generador.', sub:'generador',
+      funcion:'Regula la presión. Si el paso del vapor se obstruye, el agua sube por este tubo y avisa. Al enfriar, deja entrar aire y evita que el líquido de la muestra retroceda al generador.',
+      uso:'Su extremo inferior debe quedar dentro del agua, cerca del fondo. Vigila la columna de agua: si sube mucho, baja la llama o busca una obstrucción.',
+      error:'Taparlo o dejarlo fuera del agua: se pierde la protección contra sobrepresión y retroceso.',
+      dato:'Tubo de vidrio abierto de 50–60 cm' },
+    vapor: { nombre:'Tubo de conducción de vapor', tag:'Tubo de vapor', corto:'Tubo de vidrio doblado que lleva el vapor del generador a la muestra.',
+      funcion:'Conduce el vapor y lo libera en el fondo del balón de la muestra, para que atraviese todo el material vegetal.',
+      uso:'En el generador termina por encima del agua; en la muestra, cerca del fondo. Los tapones deben ajustar sin fugas.',
+      error:'Sumergirlo en el agua del generador: lo que sale es agua caliente, no vapor.',
+      dato:'Vidrio de 6–8 mm · tapones de goma horadados', requiere:['generador','muestra'] },
+    muestra: { nombre:'Balón de destilación', tag:'Balón con la muestra', corto:'Balón de fondo redondo donde se coloca el material vegetal.',
+      funcion:'Contiene la planta. El vapor la atraviesa, rompe las células que guardan el aceite y se lo lleva.',
+      uso:'Llénalo hasta la mitad con material troceado y sin compactar, para que el vapor pase por todo.',
+      error:'Compactar la planta: el vapor abre canales y deja zonas sin extraer.',
+      dato:'Balón de fondo redondo 500–1000 mL', requiere:['soportes'] },
+    rejilla: { nombre:'Rejilla de soporte', corto:'Malla que mantiene la planta separada del agua condensada.', sub:'muestra',
+      funcion:'Evita que el material vegetal se empape con el agua que se condensa en el fondo; así el vapor sigue fluyendo entre las hojas.',
+      uso:'Colócala antes de cargar la planta. El tubo de vapor debe salir por debajo de ella.',
+      error:'Omitirla con mucha muestra: la planta se cuece en el agua del fondo y baja el rendimiento.',
+      dato:'Malla de acero inoxidable' },
+    condensador: { nombre:'Refrigerante Liebig', corto:'Tubo con camisa de agua fría que convierte el vapor en líquido.',
+      funcion:'El vapor viaja por el tubo interior; el agua fría que corre por la camisa exterior lo enfría y lo condensa.',
+      uso:'El agua entra por la boquilla de abajo y sale por la de arriba, a contracorriente: así la camisa queda llena y enfría al máximo.',
+      error:'Conectar el agua al revés: queda aire en la camisa y el vapor escapa sin condensar.',
+      dato:'Camisa de 30–40 cm · incluye cabeza y alargadera', requiere:['muestra','soportes'] },
+    termometro: { nombre:'Termómetro', corto:'Mide la temperatura del vapor que pasa al refrigerante.', sub:'condensador',
+      funcion:'Indica a qué temperatura destila la mezcla. En el arrastre de vapor marca menos que la ebullición del agua: agua y aceite aportan cada uno su presión de vapor, y la mezcla hierve cuando la suma iguala la presión atmosférica.',
+      uso:'El bulbo va a la altura de la salida hacia el refrigerante, donde pasa el vapor. Cuando la lectura sube hasta la ebullición del agua pura, ya casi no sale aceite.',
+      error:'Bulbo muy arriba o muy abajo: mide aire o líquido condensado, no el vapor que destila.',
+      dato:'Escala de −10 a 110 °C · división de 1 °C' },
+    mangueras: { nombre:'Mangueras y bomba de agua', tag:'Bomba y mangueras', corto:'Circuito de agua fría del refrigerante, con bomba de recirculación.',
+      funcion:'La bomba toma agua del depósito, la manda a la camisa del refrigerante y la recibe de vuelta. Recircular ahorra agua frente a un grifo abierto.',
+      uso:'Asegura las mangueras con abrazaderas y enciende el agua antes que el calor. Agua con hielo mejora la condensación.',
+      error:'Mangueras flojas: el agua salpica sobre el mechero o los enchufes.',
+      dato:'Manguera de látex de 8 mm · bomba sumergible', requiere:['condensador'] },
+    receptor: { nombre:'Vaso receptor', corto:'Recibe el destilado: agua con el aceite esencial flotando encima.',
+      funcion:'Recoge lo que gotea de la alargadera. El aceite, menos denso que el agua e inmiscible, forma una capa encima.',
+      uso:'Ponlo bajo la alargadera. Enfriarlo en un baño de hielo reduce la pérdida de aceite por evaporación.',
+      error:'Dejar la alargadera muy alta: las gotas salpican y se pierde aceite.',
+      dato:'Vaso de precipitados de 250 mL', requiere:['condensador'] },
+    embudo: { nombre:'Embudo de decantación', corto:'Separa el aceite del agua aprovechando que no se mezclan.',
+      funcion:'En reposo, el agua queda abajo y el aceite arriba. Al abrir la llave sale el agua; se cierra justo cuando llega la interfase.',
+      uso:'Con la llave cerrada, llénalo. Quita el tapón superior antes de abrir la llave; si no, el vacío detiene el flujo.',
+      error:'No cerrar a tiempo: el aceite se va por la llave detrás del agua.',
+      dato:'Embudo de pera 125–250 mL · llave de PTFE', requiere:[] },
+  },
+  orden: ['soportes','tripode','mechero','gas','generador','seguridad','vapor','muestra','rejilla','condensador','termometro','mangueras','receptor','embudo'],
+  home: { soportes:[0,0,-5], tripode:[-32,0,0], mechero:[-32,0,0], generador:[-32,17.6,0], muestra:[-12,1.6,0], vapor:[-22,41.6,0],
+          condensador:[11,22,0], mangueras:[24,0,24], receptor:[30.3,0,0], embudo:[46,0,-4] },
+  // Desplazamiento [dx, dz] desde su sitio hasta donde aparece suelta en Ensamblar (la altura se calcula sola)
+  scatter: { soportes:[-8,-38], tripode:[-14,40], mechero:[14,40], generador:[26,40], muestra:[24,40], vapor:[0,52],
+             condensador:[0,-27], mangueras:[18,22], receptor:[24,46], embudo:[0,-32] },
+  ensamble: ['soportes','tripode','mechero','generador','muestra','vapor','condensador','mangueras','receptor','embudo'],
+  pistas: { soportes:'Detrás del montaje, en el centro de la mesa.', tripode:'A la izquierda, donde irá la llama.', mechero:'Debajo del trípode.',
+    generador:'Sobre la tela metálica del trípode.', muestra:'Junto al primer soporte, sujeta por el cuello.', vapor:'Une el generador con el balón de la muestra.',
+    condensador:'Sale del balón de la muestra y baja inclinado hacia la derecha.', mangueras:'Bomba delante a la derecha; las mangueras van a las boquillas del refrigerante.',
+    receptor:'Bajo la alargadera, al final del refrigerante.', embudo:'En su propio soporte, a la derecha del todo.' },
+};
+
+/* ====================== 2) Utilidades ====================== */
+const $ = s => document.querySelector(s);
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const V2 = THREE.Vector2, V3 = THREE.Vector3;
+const Y = new V3(0,1,0), Z = new V3(0,0,1);
+
+/* ====================== 3) Núcleo: escena, cámara, render (igual que titulación) ====================== */
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const VIEW = 100;
+const camera = new THREE.OrthographicCamera(-50,50,50,-50,1,2000);
+const HOME_VIEW = { target:new V3(4,24,0), zoom:1.05, theta:0.55, phi:1.1 };
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.42;
+controls.minZoom = 0.45; controls.maxZoom = 6; controls.screenSpacePanning = true;
+{ const s = new THREE.Spherical(300, HOME_VIEW.phi, HOME_VIEW.theta); camera.position.copy(HOME_VIEW.target).add(new V3().setFromSpherical(s));
+  controls.target.copy(HOME_VIEW.target); camera.zoom = HOME_VIEW.zoom; camera.updateProjectionMatrix(); controls.update(); }
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a99a6, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(40,90,55); sun.castShadow = true; sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera, { left:-75, right:75, top:75, bottom:-75, near:1, far:320 }); sun.shadow.bias = -0.0005;
+scene.add(sun);
+const benchMat = new THREE.MeshLambertMaterial({ color:0xf1f4f6 });
+const bench = new THREE.Mesh(new RoundedBoxGeometry(124,2,124,3,1.2), benchMat); bench.position.y = -1; bench.receiveShadow = true; scene.add(bench);
+const grid = new THREE.GridHelper(120, 30); grid.position.y = 0.02; grid.material.transparent = true; grid.material.opacity = 0.7; scene.add(grid);
+
+const gradient = new THREE.DataTexture(new Uint8Array([80,165,255]), 3, 1, THREE.RedFormat);
+gradient.minFilter = gradient.magFilter = THREE.NearestFilter; gradient.needsUpdate = true;
+const toon = (color, extra={}) => new THREE.MeshToonMaterial({ color, gradientMap:gradient, ...extra });
+const outlineMat = new THREE.ShaderMaterial({ uniforms:{ c:{value:new THREE.Color()}, t:{value:0.11} }, side:THREE.BackSide,
+  vertexShader:`uniform float t; void main(){ vec3 p = position + normal * t; gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1.0); }`,
+  fragmentShader:`uniform vec3 c; void main(){ gl_FragColor = vec4(c,1.0); }` });
+const glassMats = [];
+function glassMat(){
+  const m = new THREE.ShaderMaterial({ uniforms:{ tint:{value:new THREE.Color()}, ink:{value:new THREE.Color()}, acc:{value:new THREE.Color()}, hi:{value:0} },
+    transparent:true, depthWrite:false, side:THREE.DoubleSide,
+    vertexShader:`varying vec3 vN; void main(){ vN = normalize(normalMatrix*normal); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader:`uniform vec3 tint; uniform vec3 ink; uniform vec3 acc; uniform float hi; varying vec3 vN;
+      void main(){ vec3 n = normalize(vN); float f = 1.0 - abs(n.z); float rim = smoothstep(0.66, 0.97, f);
+        float band = gl_FrontFacing ? smoothstep(0.22,0.28,n.x) * (1.0 - smoothstep(0.40,0.46,n.x)) : 0.0;
+        vec3 col = mix(tint, ink, rim*0.9) + band*0.55; col = mix(col, acc, hi*0.45);
+        gl_FragColor = vec4(col, 0.10 + rim*0.82 + band*0.35 + hi*0.12); }` });
+  glassMats.push(m); return m;
+}
+
+const pickables = [];
+function mk(geo, mat, parent, { pos=[0,0,0], rot=[0,0,0], outline=true, shadow=true, part=null, sub=null, ctrl=null, order=0, noGhost=false }={}){
+  const m = new THREE.Mesh(geo, mat); m.position.set(...pos); m.rotation.set(...rot);
+  m.castShadow = shadow; m.receiveShadow = true; m.renderOrder = order; if (noGhost) m.userData.noGhost = true;
+  if (outline){ const o = new THREE.Mesh(geo, outlineMat); o.userData.outline = true; o.castShadow = false; o.raycast = ()=>{}; m.add(o); }
+  if (part){ m.userData.part = part; if (sub) m.userData.sub = sub; if (ctrl) m.userData.ctrl = ctrl; pickables.push(m); }
+  parent.add(m); return m;
+}
+const colliderMat = new THREE.MeshBasicMaterial({ visible:false });
+function collider(geo, parent, pos, part, { sub=null, ctrl=null, quat=null }={}){ const m = new THREE.Mesh(geo, colliderMat); m.position.set(...pos); if (quat) m.quaternion.copy(quat);
+  m.userData.part = part; if (sub) m.userData.sub = sub; if (ctrl) m.userData.ctrl = ctrl; pickables.push(m); parent.add(m); return m; }
+function anchor(key, name, pos){ const a = new THREE.Object3D(); a.position.set(...pos); a.userData = { name }; parts[key].group.add(a); parts[key].anchors.push(a); return a; }
+const box = (w,h,d,r=0.35) => new RoundedBoxGeometry(w,h,d,3,r);
+// Cilindro entre dos puntos (varillas, patas, tubos rectos)
+function segment(a, b, r, mat, parent, opts={}){ const A = new V3(...a), B = new V3(...b), d = B.clone().sub(A);
+  const m = mk(new THREE.CylinderGeometry(r, r, d.length(), opts.seg || 14), mat, parent, { ...opts, pos:A.clone().add(B).multiplyScalar(0.5).toArray() });
+  m.quaternion.setFromUnitVectors(Y, d.normalize()); return m; }
+// Tubo curvo por puntos (vidrio doblado, mangueras). Guarda la curva para mover partículas por dentro.
+function tube(pts, r, mat, parent, opts={}){ const curve = new THREE.CatmullRomCurve3(pts.map(p => new V3(...p)), false, 'centripetal');
+  const m = mk(new THREE.TubeGeometry(curve, opts.tseg || 90, r, 10, false), mat, parent, opts); m.userData.curve = curve; return m; }
+// Superficie de revolución a partir de una función radio(y)
+function lathe(fnR, y0, y1, n=18){ const pts = [new V2(0,y0)]; for (let i=0;i<=n;i++){ const y = y0+(y1-y0)*i/n; pts.push(new V2(Math.max(0.03, fnR(y)), y)); } pts.push(new V2(0,y1)); return new THREE.LatheGeometry(pts, 36); }
+// Líquido entre dos alturas dentro de un recipiente (se reconstruye solo si cambia)
+function liquid(parent, pos, fnR, mat, order=1){
+  const L = { a:-1, b:-1 }; L.mesh = mk(new THREE.BufferGeometry(), mat, parent, { pos, outline:false, shadow:false, order, noGhost:true }); L.mesh.visible = false;
+  L.set = (na, nb) => { if (Math.abs(na-L.a) < 0.015 && Math.abs(nb-L.b) < 0.015) return; L.a = na; L.b = nb;
+    L.mesh.visible = nb - na > 0.03; if (L.mesh.visible){ L.mesh.geometry.dispose(); L.mesh.geometry = lathe(fnR, na, nb); } };
+  return L; }
+const sphR = (R, inset) => y => Math.sqrt(Math.max(0, R*R - (y-R)*(y-R))) - inset;
+function roundFlask(R, neckR, neckTop){ const pts = [], yJ = R + Math.sqrt(R*R - neckR*neckR), aTop = Math.asin((yJ-R)/R);
+  for (let i=0;i<=24;i++){ const a = -Math.PI/2 + (aTop + Math.PI/2)*i/24; pts.push(new V2(Math.max(0.001, R*Math.cos(a)), R + R*Math.sin(a))); }
+  pts.push(new V2(neckR, neckTop), new V2(neckR+0.25, neckTop+0.1), new V2(neckR+0.25, neckTop+0.5), new V2(neckR, neckTop+0.55)); return new THREE.LatheGeometry(pts, 44); }
+
+/* ---- Materiales del equipo ---- */
+const M = {
+  iron: toon(0x2C3A48), steel: toon(0xBAC4CC), clamp: toon(0x34495E), jaw: toon(0xC94A3E), knob: toon(0x1C2630),
+  rubber: toon(0xA4473A), hose: toon(0xC98A4B), gasHose: toon(0xD8B23A), cork: toon(0xB08850), mesh: toon(0x9AA5AD), ceramic: toon(0xEDEDE6),
+  water: toon(0xA9D6E6, { transparent:true, opacity:0.78, side:THREE.DoubleSide }),
+  dist: toon(0xD6E9EE, { transparent:true, opacity:0.85, side:THREE.DoubleSide }),
+  oil: toon(0xE0A93B, { transparent:true, opacity:0.95, side:THREE.DoubleSide }),
+  jacketWater: toon(0x8CC8DE, { transparent:true, opacity:0.55 }),
+  leaf: [toon(0x4E8F3A), toon(0x6BAA4A), toon(0x3E7A30)],
+};
+
+/* ====================== 4) Construcción de piezas (en coordenadas de mundo) ====================== */
+const parts = {};
+function newPart(key){ const g = new THREE.Group(); g.userData.key = key; scene.add(g); parts[key] = { group:g, anchors:[], placed:true }; return g; }
+// Las piezas se dibujan en coordenadas de mundo; al final el origen del grupo pasa a su punto "home".
+function finalize(key){ const g = parts[key].group, h = new V3(...EQUIPO.home[key]); g.children.forEach(c => c.position.sub(h)); g.position.copy(h); }
+function clampTo(g, part, rod, target, jawR, axis){
+  const [rx,ry,rz] = rod, [tx,ty,tz] = target;
+  mk(box(2.6,2.6,2.6,0.4), M.clamp, g, { pos:[rx,ry,rz], part });
+  mk(new THREE.CylinderGeometry(0.7,0.7,0.7,14), M.knob, g, { pos:[rx+2,ry,rz], rot:[0,0,Math.PI/2], part });
+  mk(box(0.9,0.9,Math.abs(tz-rz)-jawR,0.2), M.clamp, g, { pos:[tx,ty,(rz+tz-jawR)/2], part });
+  const jaw = mk(new THREE.TorusGeometry(jawR+0.35, 0.3, 8, 26, Math.PI*1.5), M.jaw, g, { pos:[tx,ty,tz], part });
+  jaw.quaternion.setFromUnitVectors(Z, axis.clone().normalize()); jaw.rotateZ(-Math.PI*0.25);
+}
+
+// Condensador: geometría compartida por varias piezas
+const A = new V3(-5,30,0), B = new V3(27,14,0), dC = B.clone().sub(A), LC = dC.length(); dC.normalize();
+const nC = new V3(-dC.y, dC.x, 0);                       // perpendicular "hacia arriba"
+const onC = t => A.clone().addScaledVector(dC, LC*t);
+const tipUp = onC(0.17).addScaledVector(nC, 3.6), tipLow = onC(0.83).addScaledVector(nC, 3.6);
+
+// --- Soportes y pinzas
+{ const g = newPart('soportes');
+  for (const x of [-12, 11]){ mk(box(14,1.2,20,0.4), M.iron, g, { pos:[x,0.6,-5], part:'soportes' }); }
+  segment([-12,1.2,-11],[-12,50,-11], 0.6, M.steel, g, { part:'soportes' });
+  segment([11,1.2,-11],[11,40,-11], 0.6, M.steel, g, { part:'soportes' });
+  clampTo(g, 'soportes', [-12,17.4,-11], [-12,17.4,0], 1.35, Y);
+  clampTo(g, 'soportes', [11,22,-11], [11,22,0], 0.6, dC);
+  mk(new THREE.TorusGeometry(2.8,0.45,10,28), M.cork, g, { pos:[-12,1.65,0], rot:[Math.PI/2,0,0], part:'soportes' });
+  collider(new THREE.CylinderGeometry(1.8,1.8,49,8), g, [-12,25,-11], 'soportes');
+  collider(new THREE.CylinderGeometry(1.8,1.8,39,8), g, [11,20,-11], 'soportes');
+  anchor('soportes','soportes',[11,36,-11]);
+  finalize('soportes'); }
+
+// --- Trípode y tela metálica
+{ const g = newPart('tripode');
+  mk(new THREE.TorusGeometry(6,0.35,8,36), M.iron, g, { pos:[-32,17,0], rot:[Math.PI/2,0,0], part:'tripode' });
+  for (const a of [Math.PI/2, Math.PI*7/6, Math.PI*11/6]) segment([-32+6*Math.cos(a),17,6*Math.sin(a)], [-32+8*Math.cos(a),0,8*Math.sin(a)], 0.35, M.iron, g, { part:'tripode' });
+  mk(box(13,0.25,13,0.1), M.mesh, g, { pos:[-32,17.4,0], part:'tripode' });
+  mk(new THREE.CylinderGeometry(4,4,0.3,32), M.ceramic, g, { pos:[-32,17.5,0], part:'tripode', outline:false });
+  anchor('tripode','tripode',[-38,14,4]);
+  finalize('tripode'); }
+
+// --- Mechero Bunsen + manguera + llave de gas
+const burner = {};
+{ const g = newPart('mechero');
+  mk(new THREE.CylinderGeometry(2.4,2.8,1.2,24), M.iron, g, { pos:[-32,0.6,0], part:'mechero' });
+  mk(new THREE.CylinderGeometry(0.65,0.65,10,16), M.steel, g, { pos:[-32,6.2,0], part:'mechero' });
+  mk(new THREE.CylinderGeometry(0.9,0.9,1.3,16), M.knob, g, { pos:[-32,3,0], part:'mechero' });
+  segment([-32.6,1.8,0],[-35,1.8,0], 0.32, M.steel, g, { part:'mechero' });
+  tube([[-35,1.8,0],[-39,0.6,2.5],[-44,0.7,7],[-47,2.2,10]], 0.42, M.gasHose, g, { part:'mechero' });
+  mk(box(3,2.4,3,0.3), M.clamp, g, { pos:[-48.5,1.2,10], part:'mechero', sub:'gas', ctrl:'gas' });
+  burner.handle = new THREE.Group(); burner.handle.position.set(-48.5,3,10); g.add(burner.handle);
+  mk(box(3.4,0.5,0.7,0.2), toon(0xD8B23A), burner.handle, { part:'mechero', sub:'gas', ctrl:'gas' });
+  burner.handle.rotation.y = Math.PI/2;                    // cerrada: perpendicular a la manguera
+  collider(new THREE.BoxGeometry(5,5,5), g, [-48.5,2,10], 'mechero', { sub:'gas', ctrl:'gas' });
+  collider(new THREE.CylinderGeometry(2.6,2.6,12,8), g, [-32,6,0], 'mechero', { ctrl:'gas' });
+  // llama: dos conos (exterior e interior azul); solo visible encendida
+  burner.flame = new THREE.Group(); burner.flame.position.set(-32,11.2,0); g.add(burner.flame);
+  const outer = new THREE.ConeGeometry(0.85,5.2,18); outer.translate(0,2.6,0);
+  const inner = new THREE.ConeGeometry(0.5,2.2,18); inner.translate(0,1.1,0);
+  burner.flame.add(Object.assign(new THREE.Mesh(outer, new THREE.MeshBasicMaterial({ color:0x8DB6FF, transparent:true, opacity:0.5, depthWrite:false })), { renderOrder:6 }));
+  burner.flame.add(Object.assign(new THREE.Mesh(inner, new THREE.MeshBasicMaterial({ color:0x2F5BFF, transparent:true, opacity:0.85, depthWrite:false })), { renderOrder:7 }));
+  burner.flame.traverse(o => o.userData.noGhost = true); burner.flame.visible = false;
+  anchor('mechero','mechero',[-30,7,1.5]);
+  anchor('mechero','gas',[-48.5,3.5,10]);
+  finalize('mechero'); }
+
+// --- Generador de vapor: balón + agua + tapón + tubo de seguridad
+const gen = {};
+{ const g = newPart('generador');
+  gen.water = liquid(g, [-32,17.6,0], sphR(5.8,0.15), M.water);
+  mk(roundFlask(5.8,1.3,17), glassMat(), g, { pos:[-32,17.6,0], outline:false, shadow:false, order:3, part:'generador' });
+  mk(new THREE.CylinderGeometry(1.55,1.2,2.4,20), M.rubber, g, { pos:[-32,35,0], part:'generador' });
+  gen.colMat = toon(0xA9D6E6, { transparent:true, opacity:0.85 });
+  const col = new THREE.CylinderGeometry(0.17,0.17,1,10); col.translate(0,0.5,0);
+  gen.col = mk(col, gen.colMat, g, { pos:[-32.6,20,0], outline:false, shadow:false, order:2, noGhost:true });
+  segment([-32.6,19.2,0],[-32.6,52,0], 0.3, glassMat(), g, { outline:false, shadow:false, order:3, part:'generador', sub:'seguridad' });
+  collider(new THREE.CylinderGeometry(1.2,1.2,16,8), g, [-32.6,44,0], 'generador', { sub:'seguridad' });
+  collider(new THREE.SphereGeometry(6,12,10), g, [-32,23.4,0], 'generador');
+  anchor('generador','generador',[-37.3,22,0]);
+  anchor('generador','seguridad',[-32.6,48,0]);
+  finalize('generador'); }
+
+// --- Tubo de conducción de vapor
+let steamCurve;
+{ const g = newPart('vapor');
+  const m = tube([[-31.4,32,0],[-31.4,40.4,0],[-30.4,41.6,0],[-14.2,41.6,0],[-12.6,40.4,0],[-12.6,3.6,0]], 0.3, glassMat(), g, { outline:false, shadow:false, order:3, part:'vapor', tseg:140 });
+  steamCurve = m.userData.curve;
+  collider(new THREE.BoxGeometry(20,2.6,2.6), g, [-22,41.6,0], 'vapor');
+  anchor('vapor','vapor',[-22,41.6,0]);
+  finalize('vapor'); }
+
+// --- Balón de destilación: + rejilla + planta + condensado + niebla
+const smp = {};
+{ const g = newPart('muestra');
+  smp.cond = liquid(g, [-12,1.6,0], sphR(6.2,0.15), M.water);
+  mk(roundFlask(6.2,1.35,18), glassMat(), g, { pos:[-12,1.6,0], outline:false, shadow:false, order:3, part:'muestra' });
+  mk(new THREE.CylinderGeometry(1.6,1.25,2.4,20), M.rubber, g, { pos:[-12,20.1,0], part:'muestra' });
+  mk(new THREE.CylinderGeometry(5.4,5.4,0.22,36), M.mesh, g, { pos:[-12,5.2,0], part:'muestra', sub:'rejilla', order:2 });
+  mk(new THREE.RingGeometry(1.2,5.3,36,4), new THREE.MeshBasicMaterial({ color:0x6C7780, wireframe:true }), g, { pos:[-12,5.33,0], rot:[-Math.PI/2,0,0], outline:false, shadow:false, part:'muestra', sub:'rejilla' });
+  const leaves = [[-1.8,6.4,1.2],[1.6,6.6,-1.4],[0.2,7.4,2.4],[-2.4,7.8,-1.6],[2.6,8.2,1.0],[-0.6,9.0,-0.4],[1.2,9.8,1.6],[-1.6,10.2,0.9],[0.4,10.8,-1.8],[2.2,6.2,2.6],[-3.0,6.6,0.2]];
+  leaves.forEach(([x,y,z],i) => { const s = mk(new THREE.SphereGeometry(1,10,8), M.leaf[i%3], g, { pos:[-12+x,y,z], rot:[i*0.7,i*1.3,i*0.4], part:'muestra', order:2 }); s.scale.set(1.4,0.55,0.9); });
+  smp.fog = mk(new THREE.SphereGeometry(5.7,24,16), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0, depthWrite:false }), g, { pos:[-12,7.8,0], outline:false, shadow:false, order:4, noGhost:true });
+  collider(new THREE.SphereGeometry(6.4,12,10), g, [-12,7.8,0], 'muestra');
+  anchor('muestra','muestra',[-6.2,9,0]);
+  anchor('muestra','rejilla',[-7,5.2,1.5]);
+  finalize('muestra'); }
+
+// --- Refrigerante Liebig + cabeza (codo) + alargadera
+const cond = {};
+{ const g = newPart('condensador');
+  const glass = () => glassMat();
+  const head = tube([[-11.4,19.2,0],[-11.4,26,0],[-10.8,28.8,0],[-9,30.6,0],[-6.8,30.9,0],[A.x,A.y,0]], 0.55, glass(), g, { outline:false, shadow:false, order:3, part:'condensador' });
+  segment(A.toArray(), B.toArray(), 0.55, glass(), g, { outline:false, shadow:false, order:3, part:'condensador' });
+  const ad = tube([[B.x,B.y,0],[28.8,13.1,0],[30,11.6,0],[30.3,9.5,0],[30.3,7.6,0]], 0.55, glass(), g, { outline:false, shadow:false, order:3, part:'condensador' });
+  const Lj = LC*0.76, j0 = onC(0.12);
+  const jacket = mk(new THREE.LatheGeometry([[0.6,0],[1.75,1.2],[1.75,Lj-1.2],[0.6,Lj]].map(p=>new V2(...p)), 40), glass(), g, { pos:j0.toArray(), outline:false, shadow:false, order:3, part:'condensador' });
+  jacket.quaternion.setFromUnitVectors(Y, dC);
+  // agua de la camisa: crece desde la boquilla de abajo hacia arriba
+  const jw = new THREE.CylinderGeometry(1.5,1.5,1,24); jw.translate(0,0.5,0);
+  cond.water = mk(jw, M.jacketWater, g, { pos:onC(0.88).toArray(), outline:false, shadow:false, order:2, noGhost:true });
+  cond.water.quaternion.setFromUnitVectors(Y, dC.clone().negate()); cond.water.scale.y = 0.001; cond.Lj = Lj;
+  for (const t of [0.17, 0.83]){ const p = onC(t); segment(p.clone().addScaledVector(nC,1.5).toArray(), p.clone().addScaledVector(nC,3.6).toArray(), 0.35, glass(), g, { outline:false, shadow:false, order:3, part:'condensador' }); }
+  // termómetro en la cabeza de destilación: bulbo a la altura de la salida del vapor
+  segment([-11.4,26,0],[-11.4,31.4,0], 0.5, glass(), g, { outline:false, shadow:false, order:3, part:'condensador', sub:'termometro' });
+  mk(new THREE.CylinderGeometry(0.75,0.6,1.3,16), M.rubber, g, { pos:[-11.4,32,0], part:'condensador', sub:'termometro' });
+  segment([-11.4,27.4,0],[-11.4,44,0], 0.17, glass(), g, { outline:false, shadow:false, order:3, part:'condensador', sub:'termometro' });
+  mk(new THREE.SphereGeometry(0.27,12,10), toon(0xC0392B), g, { pos:[-11.4,27.3,0], part:'condensador', sub:'termometro', outline:false });
+  const thg = new THREE.CylinderGeometry(0.075,0.075,1,8); thg.translate(0,0.5,0);
+  cond.thCol = mk(thg, toon(0xC0392B), g, { pos:[-11.4,27.4,0], outline:false, shadow:false, order:4, noGhost:true, part:'condensador', sub:'termometro' });
+  collider(new THREE.BoxGeometry(2.2,17,2.2), g, [-11.4,36,0], 'condensador', { sub:'termometro' });
+  anchor('condensador','termometro',[-10.6,41,0]);
+  cond.headCurve = head.userData.curve; cond.adCurve = ad.userData.curve;
+  const q = new THREE.Quaternion().setFromUnitVectors(Y, dC);
+  collider(new THREE.CylinderGeometry(2.4,2.4,LC,8), g, onC(0.5).toArray(), 'condensador', { quat:q });
+  anchor('condensador','condensador',onC(0.42).addScaledVector(nC,2).toArray());
+  finalize('condensador'); }
+
+// --- Bomba de recirculación + depósito + mangueras
+const pump = {};
+{ const g = newPart('mangueras');
+  mk(box(11,7,8,0.6), toon(0xDDE4E8), g, { pos:[24,3.5,24], part:'mangueras', ctrl:'pump' });
+  mk(box(9,4,0.3,0.1), toon(0x8CC8DE), g, { pos:[24,3,28.1], part:'mangueras', ctrl:'pump', outline:false });
+  mk(box(4,2.4,3,0.4), toon(0x2E3A46), g, { pos:[22,8.2,24], part:'mangueras', ctrl:'pump' });
+  pump.led = new THREE.MeshBasicMaterial({ color:0x55606a });
+  mk(new THREE.SphereGeometry(0.35,10,8), pump.led, g, { pos:[22,8.4,25.6], outline:false, shadow:false });
+  // entrada: de la bomba a la boquilla de ABAJO; salida: de la boquilla de ARRIBA al depósito (contracorriente)
+  const hin = tube([[22.6,9.4,23],[22.8,11.5,14],[23.1,16.5,4],[tipLow.x,tipLow.y+1.2,0.8],[tipLow.x,tipLow.y,0]], 0.45, M.hose, g, { part:'mangueras' });
+  const hout = tube([[tipUp.x,tipUp.y,0],[tipUp.x+0.3,tipUp.y+1.6,0.8],[4,27,6],[10,14,15],[18,8.5,21],[25.5,7.2,22.5]], 0.45, M.hose, g, { part:'mangueras' });
+  pump.curves = [hin.userData.curve, hout.userData.curve];
+  collider(new THREE.BoxGeometry(12,10,9), g, [24,4.5,24], 'mangueras', { ctrl:'pump' });
+  anchor('mangueras','mangueras',[29,6,24]);
+  finalize('mangueras'); }
+
+// --- Vaso receptor con destilado (agua + capa de aceite)
+const rec = {};
+{ const g = newPart('receptor');
+  rec.water = liquid(g, [30.3,0,0], () => 3.4, M.dist);
+  rec.oil = liquid(g, [30.3,0,0], () => 3.4, M.oil, 2);
+  mk(new THREE.LatheGeometry([[0,0],[3.6,0],[3.6,9],[3.95,9.3]].map(p=>new V2(...p)), 40), glassMat(), g, { pos:[30.3,0,0], outline:false, shadow:false, order:3, part:'receptor' });
+  collider(new THREE.CylinderGeometry(3.8,3.8,9.4,10), g, [30.3,4.7,0], 'receptor');
+  anchor('receptor','receptor',[34,5,0]);
+  finalize('receptor'); }
+
+// --- Embudo de decantación en su soporte con aro, y vaso colector
+const fun = {};
+const FP = [[0.18,0],[0.25,3.0],[0.35,5.6],[0.5,6.5],[1.6,8.5],[3.0,11],[3.3,12.5],[2.6,15],[1.2,17],[0.9,17.6],[0.9,19],[1.1,19.2]];
+const rP = y => { for (let i=1;i<FP.length;i++){ if (y <= FP[i][1]){ const [r0,y0]=FP[i-1], [r1,y1]=FP[i]; return r0+(r1-r0)*(y-y0)/(y1-y0); } } return 1; };
+{ const g = newPart('embudo'), base = 6.5;
+  mk(box(10,1,13,0.4), M.iron, g, { pos:[46,0.5,-4], part:'embudo' });
+  segment([46,1,-9],[46,31,-9], 0.5, M.steel, g, { part:'embudo' });
+  mk(box(2.2,2.2,2.2,0.35), M.clamp, g, { pos:[46,base+10,-9], part:'embudo' });
+  mk(box(0.6,0.6,6.6,0.2), M.clamp, g, { pos:[46,base+10,-5.6], part:'embudo' });
+  mk(new THREE.TorusGeometry(2.55,0.25,8,28), M.clamp, g, { pos:[46,base+10,0], rot:[Math.PI/2,0,0], part:'embudo' });
+  fun.water = liquid(g, [46,base,0], y => rP(y)-0.14, M.dist);
+  fun.oil = liquid(g, [46,base,0], y => rP(y)-0.14, M.oil, 2);
+  mk(new THREE.LatheGeometry(FP.map(p=>new V2(...p)), 40), glassMat(), g, { pos:[46,base,0], outline:false, shadow:false, order:3, part:'embudo' });
+  mk(new THREE.CylinderGeometry(0.38,0.38,2.2,14), toon(0xF1F4F6), g, { pos:[46,base+4.7,0], rot:[0,0,Math.PI/2], part:'embudo', ctrl:'llaveE' });
+  fun.handle = new THREE.Group(); fun.handle.position.set(47.4,base+4.7,0); fun.handle.rotation.x = Math.PI/2; g.add(fun.handle);
+  mk(box(0.35,1.8,0.6,0.12), toon(0x2E5B9A), fun.handle, { part:'embudo', ctrl:'llaveE' });
+  fun.stopper = mk(new THREE.CylinderGeometry(1.15,0.9,1.4,16), toon(0xF1F4F6), g, { pos:[46,base+19.6,0], part:'embudo', ctrl:'tapon' });
+  fun.beakerW = liquid(g, [46,0,0], () => 2.6, M.dist);
+  fun.beakerO = liquid(g, [46,0,0], () => 2.6, M.oil, 2);
+  mk(new THREE.LatheGeometry([[0,0],[2.8,0],[2.8,7],[3.05,7.25]].map(p=>new V2(...p)), 32), glassMat(), g, { pos:[46,0,0], outline:false, shadow:false, order:3, part:'embudo' });
+  collider(new THREE.CylinderGeometry(3.4,3.4,19,10), g, [46,base+9.5,0], 'embudo');
+  collider(new THREE.BoxGeometry(4,2.4,2.4), g, [46.6,base+4.7,0], 'embudo', { ctrl:'llaveE' });
+  fun.base = base;
+  anchor('embudo','embudo',[49.4,base+12.5,0]);
+  finalize('embudo'); }
+
+/* ====================== 5) Overlay: hotspots con anti-solape ====================== */
+const overlay = $('#overlay');
+const keyOf = o => (o.userData.sub && EQUIPO.partes[o.userData.sub]) ? o.userData.sub : o.userData.part;
+const hostOf = k => EQUIPO.partes[k]?.sub || k;
+const hotspots = [];
+for (const key of EQUIPO.orden){
+  const a = parts[hostOf(key)].anchors.find(x => x.userData.name === key), p = EQUIPO.partes[key];
+  const dot = document.createElement('button'); dot.className = 'dot'; dot.setAttribute('aria-label', p.nombre);
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = p.tag || p.nombre;
+  for (const el of [dot, tag]){ el.addEventListener('click', () => select(key)); overlay.appendChild(el); }
+  hotspots.push({ key, a, dot, tag, sx:0, sy:0, ty:0, tw:0 });
+}
+const tmp = new V3();
+function project(obj){ obj.getWorldPosition(tmp).project(camera); const r = stage.getBoundingClientRect(); return [ (tmp.x*0.5+0.5)*r.width, (-tmp.y*0.5+0.5)*r.height, tmp.z ]; }
+
+/* ====================== 6) Picking y cámara animada ====================== */
+const raycaster = new THREE.Raycaster(); const ndc = new V2();
+function pick(ev, list=pickables){ const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1); raycaster.setFromCamera(ndc, camera);
+  return raycaster.intersectObjects(list, false)[0] || null; }
+let tween = null;
+function flyTo({ target=controls.target.clone(), zoom=camera.zoom, theta=null, phi=null }, dur=900){
+  const s = new THREE.Spherical().setFromVector3(new V3().subVectors(camera.position, controls.target));
+  let th = theta ?? s.theta; while (th - s.theta > Math.PI) th -= 2*Math.PI; while (th - s.theta < -Math.PI) th += 2*Math.PI;
+  tween = { t:0, dur: reduceMotion ? 1 : dur, from:{ target:controls.target.clone(), zoom:camera.zoom, theta:s.theta, phi:s.phi }, to:{ target, zoom, theta:th, phi: phi ?? s.phi } }; }
+function stepTween(dt){ if (!tween) return; tween.t = Math.min(1, tween.t + dt*1000/tween.dur);
+  const k = 1 - Math.pow(1 - tween.t, 3), f = tween.from, t = tween.to;
+  controls.target.lerpVectors(f.target, t.target, k); camera.zoom = f.zoom + (t.zoom - f.zoom)*k; camera.updateProjectionMatrix();
+  camera.position.copy(controls.target).add(new V3().setFromSpherical(new THREE.Spherical(300, f.phi + (t.phi - f.phi)*k, f.theta + (t.theta - f.theta)*k)));
+  if (tween.t >= 1) tween = null; }
+function focusPart(key){
+  if (EQUIPO.partes[key].sub){ const a = parts[hostOf(key)].anchors.find(x => x.userData.name === key); return flyTo({ target:a.getWorldPosition(new V3()), zoom:3.4 }); }
+  const b = new THREE.Box3().setFromObject(parts[key].group), c = b.getCenter(new V3()), size = b.getSize(new V3());
+  flyTo({ target:c, zoom: Math.min(5, Math.max(1.1, VIEW/(Math.max(size.y, Math.max(size.x,size.z)*0.9)*1.4))) }); }
+const accentColor = new THREE.Color();
+function setHighlight(key, on, strength=0.22){
+  if (!key || !EQUIPO.partes[key]) return; const isSub = !!EQUIPO.partes[key].sub;
+  parts[hostOf(key)].group.traverse(o => { if (!o.isMesh || o.userData.outline || o.userData.noGhost) return;
+    if (isSub && o.userData.sub !== key) return;
+    if (o.material.isMeshToonMaterial) o.material.emissive.copy(accentColor).multiplyScalar(on ? strength : 0);
+    else if (o.material.uniforms?.hi) o.material.uniforms.hi.value = on ? strength*2.2 : 0; }); }
+
+/* ====================== 7) Modos ====================== */
+let mode = null, selected = null, hovered = null, labelsOn = true;
+const panel = $('#panel'); const toastEl = $('#toast'); let toastTimer;
+function toast(msg, kind=''){ toastEl.textContent = msg; toastEl.className = 'toast ' + kind; toastEl.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.hidden = true, 3600); }
+function select(key){ if (mode !== MODES.explorar) return; if (selected) setHighlight(selected, false);
+  selected = key; setHighlight(key, true); const p = EQUIPO.partes[key];
+  $('#popTitle').textContent = p.nombre; $('#popText').textContent = p.corto; $('#popup').hidden = false; renderExplorePanel(); }
+function deselect(){ if (selected) setHighlight(selected,false); selected = null; $('#popup').hidden = true; $('#leader').setAttribute('d',''); if (mode === MODES.explorar) renderExplorePanel(); }
+$('#popClose').onclick = deselect; $('#popZoom').onclick = () => selected && focusPart(selected);
+
+function renderExplorePanel(){
+  const chips = EQUIPO.orden.map(k => `<button class="chip" data-k="${k}" aria-pressed="${k===selected}">${EQUIPO.partes[k].tag || EQUIPO.partes[k].nombre}</button>`).join('');
+  if (!selected){
+    panel.innerHTML = `<div class="block"><h4>Modo explorar</h4><h2>Conoce cada pieza</h2></div>
+      <p class="lead">El vapor nace a la izquierda, atraviesa la planta, se enfría en el refrigerante y gotea a la derecha. Toca un punto para ver qué hace cada pieza y su error típico.</p>
+      <div class="block"><h4>Piezas del montaje · ${EQUIPO.orden.length}</h4><div class="chips">${chips}</div></div>`;
+  } else { const p = EQUIPO.partes[selected];
+    panel.innerHTML = `<div class="block"><h4>Pieza seleccionada</h4><h2>${p.nombre}</h2></div><div class="spec">${p.dato}</div>
+      <div class="block"><h4>Para qué sirve</h4><p>${p.funcion}</p></div><div class="block"><h4>Cómo se usa</h4><p>${p.uso}</p></div>
+      <div class="block err"><h4>Error común</h4><p>${p.error}</p></div><div class="block"><h4>Otras piezas</h4><div class="chips">${chips}</div></div>`; }
+  panel.querySelectorAll('.chip').forEach(b => b.onclick = () => { select(b.dataset.k); focusPart(b.dataset.k); });
+}
+
+const MODES = {
+  explorar: {
+    view(){ return HOME_VIEW; },
+    enter(){ assembleAll(); overlay.hidden = false; $('#hint').innerHTML = 'Arrastra para girar · rueda para zoom<br>toca un punto para ver la pieza'; renderExplorePanel(); flyTo(this.view()); },
+    exit(){ deselect(); overlay.hidden = true; },
+    click(hit){ if (hit) select(keyOf(hit.object)); else deselect(); },
+    update(){
+      const r = stage.getBoundingClientRect(), W = r.width;
+      for (const h of hotspots){ const [x,y,z] = project(h.a); h.sx = x; h.sy = y; h.vis = !(z>1 || x<-40 || x>W+40 || y<-20 || y>r.height+20);
+        if (!h.tw && h.vis && labelsOn) h.tw = h.tag.offsetWidth; h.side = x < W*0.5 ? 'left' : 'right'; }
+      // Etiquetas hacia afuera del montaje, apiladas por altura sin solaparse y sin salirse del lienzo
+      for (const side of ['left','right']){ let last = -1e9;
+        for (const h of hotspots.filter(h => h.side === side && h.vis).sort((a,b) => a.sy - b.sy)){ h.ty = Math.max(h.sy, last + 30); last = h.ty; } }
+      let ties = '';
+      for (const h of hotspots){ const L = h.side === 'left';
+        h.dot.style.display = h.tag.style.display = h.vis ? '' : 'none'; if (!h.vis) continue;
+        const gx = L ? Math.max(h.sx - 30, (h.tw||120) + 10) : Math.min(h.sx + 30, W - (h.tw||120) - 10);
+        h.dot.style.transform = `translate(${h.sx-9}px,${h.sy-9}px)`;
+        h.tag.style.transform = `translate(${gx}px,${h.ty}px) translate(${L?'-100%':'0'},-50%)`;
+        h.dot.classList.toggle('sel', h.key === selected); h.tag.classList.toggle('sel', h.key === selected);
+        ties += `M${h.sx + (L?-9:9)} ${h.sy} L${gx + (L?2:-2)} ${h.ty}`; }
+      $('#ties').setAttribute('d', ties);
+      if (selected){ const h = hotspots.find(h => h.key === selected), pr = $('#popup').getBoundingClientRect();
+        const sx = pr.left - r.left + 28, sy = pr.bottom - r.top; $('#leader').setAttribute('d', `M${sx} ${sy} L${sx} ${sy+24} L${h.sx} ${h.sy}`); }
+    }
+  },
+  ensamblar: {
+    view(){ const a = stage.clientWidth/stage.clientHeight; return { target:new V3(0,8,2), zoom: Math.min(0.66, a*0.5), theta:0.6 }; },
+    enter(){ overlay.hidden = true; scatterAll(); $('#hint').innerHTML = 'Cámara fija en este modo<br>arrastra cada pieza a su silueta';
+      controls.enabled = false; stage.classList.add('locked'); renderAssemblePanel(); flyTo(this.view()); },
+    exit(){ drag = null; for (const k in ghosts) ghosts[k].visible = false; controls.enabled = true; stage.classList.remove('locked'); },
+    update(){ const t = performance.now()/1000;
+      for (const k in ghosts){ const g = ghosts[k]; g.visible = !parts[k].placed && depsOk(k);
+        g.userData.mat.opacity = (drag?.k === k && drag.inside) ? 0.5 : 0.2 + 0.1*Math.sin(t*3); } }
+  },
+  operar: {
+    view(){ return { target:new V3(6,22,0), zoom:1.05, theta:0.55 }; },
+    enter(){ overlay.hidden = true; assembleAll(); $('#hint').innerHTML = 'Toca la bomba, el mechero o la llave<br>del embudo en el modelo, o usa el panel';
+      resetOperate(); flyTo(this.view()); },
+    exit(){ resetOperate(false); },
+    click(hit){ if (!hit) return; const c = hit.object.userData.ctrl;
+      if (c === 'pump') setPump(!op.pump); else if (c === 'gas') setFlame((op.llama + 1) % 3);
+      else if (c === 'llaveE') setValve(!op.llaveE); else if (c === 'tapon') setStopper(!op.tapon); },
+    update(dt){ updateOperate(dt); }
+  },
+};
+
+/* ---- Ensamblaje (mismo motor que titulación) ---- */
+const ASSEMBLY = EQUIPO.ensamble;
+const depsOk = k => (EQUIPO.partes[k].requiere || []).every(d => parts[d].placed);
+const ghosts = {}, SNAP = {}, FLOOR = {};
+for (const k of ASSEMBLY){
+  const b = new THREE.Box3().setFromObject(parts[k].group), size = b.getSize(new V3());
+  FLOOR[k] = b.min.y; SNAP[k] = Math.max(6, Math.max(size.x, size.z)*0.28);
+  const mat = new THREE.MeshBasicMaterial({ color:0x15212c, transparent:true, opacity:0.2, depthWrite:false });
+  const gh = parts[k].group.clone(true);
+  gh.traverse(o => { if (o.isMesh){ o.material = (o.userData.outline || o.userData.noGhost || o.material === colliderMat) ? colliderMat : mat; o.castShadow = false; o.raycast = ()=>{}; } });
+  gh.userData.mat = mat; gh.visible = false; scene.add(gh); ghosts[k] = gh;
+}
+function scatterAll(){ for (const k of ASSEMBLY){ const [dx,dz] = EQUIPO.scatter[k], h = EQUIPO.home[k], g = parts[k].group;
+  parts[k].placed = false; g.position.set(h[0]+dx, h[1]-FLOOR[k], h[2]+dz); parts[k].rest = g.position.clone(); } }
+function assembleAll(){ anims.length = 0; for (const k of ASSEMBLY){ parts[k].group.position.set(...EQUIPO.home[k]); parts[k].placed = true; } }
+function renderAssemblePanel(){
+  const done = ASSEMBLY.filter(k => parts[k].placed).length;
+  const items = ASSEMBLY.map((k,i) => { const st = parts[k].placed ? 'done' : depsOk(k) ? 'next' : 'locked';
+    const req = EQUIPO.partes[k].requiere.map(r => EQUIPO.partes[r].tag || EQUIPO.partes[r].nombre).join(', ');
+    return `<li class="${st}"><span class="st">${parts[k].placed ? '✓' : i+1}</span><div><b>${EQUIPO.partes[k].tag || EQUIPO.partes[k].nombre}</b>
+      <small>${parts[k].placed ? 'Colocada.' : st === 'next' ? EQUIPO.pistas[k] : 'Antes: ' + req}</small></div></li>`; }).join('');
+  panel.innerHTML = `<div class="block"><h4>Modo ensamblar · ${done}/${ASSEMBLY.length}</h4><h2>${done === ASSEMBLY.length ? 'Montaje completo' : 'Arma el montaje'}</h2></div>
+    <div class="progress" aria-hidden="true"><i style="width:${done/ASSEMBLY.length*100}%"></i></div>
+    <p class="lead">${done === ASSEMBLY.length ? 'Todo en su sitio. Comprueba que el agua entra por la boquilla de abajo del refrigerante y pasa a Operar.' : 'Arrastra cada pieza hasta su silueta. Si la sueltas en otro sitio, vuelve a su lugar.'}</p>
+    <ol class="steps">${items}</ol><button class="btn" id="reAsm">Desarmar de nuevo</button>
+    ${done === ASSEMBLY.length ? '<button class="btn primary" id="goOp">Ir a Operar</button>' : ''}`;
+  $('#reAsm').onclick = () => { scatterAll(); renderAssemblePanel(); };
+  const go = $('#goOp'); if (go) go.onclick = () => setMode('operar');
+}
+let drag = null; const dragPlane = new THREE.Plane(new V3(0,1,0), 0); const hitP = new V3();
+const carryY = k => EQUIPO.home[k][1] + 3;
+const looseList = () => pickables.filter(m => { let g = m; while (g && !g.userData.key) g = g.parent; return g && !parts[g.userData.key].placed; });
+function startDrag(ev){ const hit = pick(ev, looseList()); if (!hit) return false;
+  let g = hit.object; while (!g.userData.key) g = g.parent; const k = g.userData.key;
+  dragPlane.constant = -carryY(k); drag = { k }; moveDrag(ev);
+  setHighlight(k, true, 0.18); renderer.domElement.style.cursor = 'grabbing'; return true; }
+const nearHome = k => { const g = parts[k].group, h = EQUIPO.home[k]; return Math.hypot(g.position.x - h[0], g.position.z - h[2]) < SNAP[k]; };
+function moveDrag(ev){ pick(ev, []); if (!raycaster.ray.intersectPlane(dragPlane, hitP)) return;
+  parts[drag.k].group.position.set(hitP.x, carryY(drag.k), hitP.z);
+  const inside = nearHome(drag.k); ghosts[drag.k].userData.mat.color.copy(inside ? accentColor : new THREE.Color(0x15212c)); drag.inside = inside; }
+function endDrag(){ const k = drag.k, g = parts[k].group; setHighlight(k,false); drag = null; renderer.domElement.style.cursor = '';
+  ghosts[k].userData.mat.color.set(0x15212c);
+  if (nearHome(k) && depsOk(k)){ animateTo(g, new V3(...EQUIPO.home[k]), () => { parts[k].placed = true; renderAssemblePanel();
+      const n = ASSEMBLY.filter(x => parts[x].placed).length; toast(n === ASSEMBLY.length ? 'Montaje completo. Bien hecho.' : (EQUIPO.partes[k].tag || EQUIPO.partes[k].nombre) + ' en su sitio.', 'ok'); }); return; }
+  if (nearHome(k)){ const falta = EQUIPO.partes[k].requiere.filter(r => !parts[r].placed).map(r => (EQUIPO.partes[r].tag || EQUIPO.partes[r].nombre).toLowerCase());
+    toast(`Aún no: primero coloca ${falta.join(' y ')}.`, 'warn'); }
+  else toast(`Ese no es su sitio. ${EQUIPO.pistas[k]}`, 'warn');
+  animateTo(g, parts[k].rest.clone()); }
+const anims = [];
+function animateTo(g, pos, done){ anims.push({ g, p0:g.position.clone(), p1:pos, t:0, done }); }
+function stepAnims(dt){ for (let i = anims.length-1; i >= 0; i--){ const a = anims[i]; a.t = Math.min(1, a.t + dt*(reduceMotion ? 100 : 2.4)); const k = 1 - Math.pow(1 - a.t, 3);
+  a.g.position.lerpVectors(a.p0, a.p1, k); if (a.t >= 1){ anims.splice(i,1); a.done?.(); } } }
+
+/* ====================== 8) Operación ======================
+   Ahora con química real en lo esencial:
+   · Ley de Dalton: la mezcla agua + aceite hierve cuando P_agua + P_aceite = P_atm, por debajo de la
+     ebullición del agua. P_agua con la ecuación de Antoine; P_aceite con Clausius-Clapeyron y la regla
+     de Trouton (aproximación: ΔHvap ≈ 88·Tb J/mol).
+   · La presión atmosférica depende del lugar (Lima o Huancayo).
+   · Volúmenes en mL: 100 g de planta con rendimiento típico; el aceite sale de forma exponencial
+     con el vapor que pasa. La densidad decide si el aceite flota o se hunde.
+   Lo que sigue siendo cualitativo: tiempos de calentamiento y caudal de vapor. */
+const PLANTAS = {
+  eucalipto: { nombre:'Eucalipto', comp:'1,8-cineol', Tb:176.4, M:154.25, rho:0.92, rend:1.5, oil:0xE6DE9C, leaf:[0x6E9C8A,0x5A8C7A,0x86B0A0] },
+  luisa:     { nombre:'Hierba luisa', comp:'citral', Tb:229, M:152.24, rho:0.89, rend:0.5, oil:0xE8C24A, leaf:[0x7FB04A,0x6A9E3A,0x93C25E] },
+  clavo:     { nombre:'Clavo de olor', comp:'eugenol', Tb:254, M:164.2, rho:1.06, rend:10, oil:0xC98A3A, leaf:[0x6B3E22,0x7A4A2A,0x5C3418] },
+};
+const LUGARES = { lima:{ nombre:'Lima (nivel del mar)', P:760 }, huancayo:{ nombre:'Huancayo (3250 m)', P:Math.round(760*Math.exp(-3250/8434)) } };
+const MASA = 100, GEN0 = 400, REC_MAX = 140, K_EXT = 30;       // g de planta, mL de agua, capacidad útil del receptor, mL de vapor por e-fold
+const pAgua = T => Math.pow(10, 8.07131 - 1730.63/(233.426 + T));             // Antoine, mmHg, °C (1–100 °C)
+const tAgua = P => 1730.63/(8.07131 - Math.log10(P)) - 233.426;
+const pAceite = (T, Tb) => 760*Math.exp(-(88*(Tb+273.15)/8.314)*(1/(T+273.15) - 1/(Tb+273.15)));
+function dalton(pl, P){ let a = 20, b = tAgua(P);
+  for (let i = 0; i < 60; i++){ const m = (a+b)/2; (pAgua(m) + pAceite(m, pl.Tb) > P) ? b = m : a = m; }
+  const T = (a+b)/2, po = pAceite(T, pl.Tb); return { T, po, pw:P - po, x:po/P }; }
+const fmt = (x, d=1) => x.toFixed(d).replace('.', ',');
+
+const op = { planta:'eucalipto', lugar:'lima', vel:1 };
+function setup(){ const pl = PLANTAS[op.planta], P = LUGARES[op.lugar].P;
+  op.Tw = tAgua(P); op.dal = dalton(pl, P); op.oilTot = MASA*pl.rend/100/pl.rho;
+  M.oil.color.set(pl.oil); M.leaf.forEach((m,i) => m.color.set(pl.leaf[i])); }
+function resetOperate(render=true){
+  Object.assign(op, { pump:false, llama:0, T:0, Ts:0, Th:20, gen:GEN0, Vpass:0, pf:1, cond:0, rw:0, ro:0, lostOil:0, lostSpill:0, everOn:false,
+    stage:'destilar', fw:0, fo:0, cw:0, co:0, llaveE:false, tapon:true, colH:0, jf:0, flowStalled:0,
+    obstAt: Math.random() < 0.6 ? 30 + Math.random()*40 : Infinity, obst:false, obstOk:false, press:0, spill:false, overflow:false });
+  setup(); particles.forEach(p => kill(p));
+  burner.flame.visible = false; burner.handle.rotation.y = Math.PI/2; pump.led.color.set(0x55606a);
+  fun.handle.rotation.x = Math.PI/2; fun.stopper.visible = true; cond.water.scale.y = 0.001;
+  syncLiquids(); if (render && mode === MODES.operar) renderOperatePanel();
+}
+function setPump(v){ op.pump = v; renderOperatePanel(); }
+function setFlame(v){ if (v > 0 && !op.pump) toast('Primero el agua del refrigerante y después el calor.', 'warn');
+  if (v > 0 && op.gen <= 8){ toast('El generador está seco: no lo calientes vacío.', 'warn'); return; }
+  if (v > 0 && op.obst){ toast('Primero apaga y deja enfriar: el tubo de vapor está obstruido.', 'warn'); return; }
+  op.llama = v; if (v > 0) op.everOn = true; renderOperatePanel(); }
+function setValve(v){ if (op.stage !== 'decantar'){ toast('Primero pasa el destilado al embudo.', 'warn'); return; } op.llaveE = v; renderOperatePanel(); }
+function setStopper(v){ if (op.stage !== 'decantar') return; op.tapon = v; renderOperatePanel(); }
+function canTransfer(){ return op.stage === 'destilar' && op.llama === 0 && op.T < 0.5 && op.rw > 10; }
+function transfer(){ op.fw = op.rw; op.fo = op.ro; op.rw = 0; op.ro = 0; op.stage = 'decantar'; op.llaveE = false; renderOperatePanel(); }
+const dense = () => PLANTAS[op.planta].rho > 1;
+function lookAtOil(){ const tgt = op.stage === 'decantar' ? new V3(46, fun.base + 6.6 + (dense() ? 0.6 : funH(op.fw + op.fo)), 0) : new V3(30.3, recH(op.rw + op.ro) + 1, 0);
+  flyTo({ target:tgt, zoom:5.5, theta:0.55, phi:1.35 }, 900); }
+
+// --- Volumen → altura del líquido (en cm, 1 unidad = 1 cm)
+const recH = V => V/(Math.PI*3.4*3.4);
+const FUN_TABLE = (() => { const t = []; let v = 0; for (let y = 6.6; y <= 15.6; y += 0.02){ t.push([y, v]); const r = rP(y) - 0.14; v += Math.PI*r*r*0.02; } return t; })();
+function funH(V){ if (V <= 0) return 0; for (let i = 1; i < FUN_TABLE.length; i++) if (FUN_TABLE[i][1] >= V){ const [y0,v0] = FUN_TABLE[i-1], [y1,v1] = FUN_TABLE[i]; return y0 - 6.6 + (y1-y0)*(V-v0)/(v1-v0); } return 9; }
+const colH = V => V/(Math.PI*2.6*2.6);
+const capH = (V, R) => { let a = 0, b = 2*R; for (let i = 0; i < 30; i++){ const h = (a+b)/2; (Math.PI*h*h*(3*R-h)/3 > V) ? b = h : a = h; } return a; };
+const MIN = 0.07;                                                                   // grosor mínimo visible de una capa
+const genLevel = () => capH(op.gen, 5.8);                                          // casquete esférico del balón (1 unidad = 1 cm)
+function layers(L1, L2, base, h1, h2, oilBottom){ // dos capas apiladas: inferior y superior
+  const [bot, top] = oilBottom ? [L2, L1] : [L1, L2], [hb, ht] = oilBottom ? [h2, h1] : [h1, h2];
+  bot.set(base, base + hb); top.set(base + hb, base + hb + ht); }
+function syncLiquids(){
+  gen.water.set(0.15, 0.15 + genLevel());
+  smp.cond.set(0.15, 0.15 + capH(op.cond, 6.2));
+  const ho = op.ro > 0.01 ? Math.max(MIN, recH(op.ro)) : 0;
+  layers(rec.water, rec.oil, 0.15, recH(op.rw), ho, dense());
+  if (op.stage === 'decantar'){ const db = dense(), vb = db ? op.fo : op.fw, vt = db ? op.fw : op.fo;
+    const hb = funH(vb), ht = funH(vb + vt) - hb, oilH = Math.max(op.fo > 0.01 ? MIN : 0, db ? hb : ht);
+    if (db){ fun.oil.set(6.6, 6.6 + oilH); fun.water.set(6.6 + oilH, 6.6 + oilH + ht); }
+    else { fun.water.set(6.6, 6.6 + hb); fun.oil.set(6.6 + hb, 6.6 + hb + oilH); } }
+  else { fun.water.set(6.6, 6.6); fun.oil.set(6.6, 6.6); }
+  const cco = op.co > 0.01 ? Math.max(MIN, colH(op.co)) : 0;
+  layers(fun.beakerW, fun.beakerO, 0.15, Math.min(6.8, colH(op.cw)), cco, dense());
+  cond.thCol.scale.y = Math.max(0.05, 1 + (op.Th/110)*14.5);
+}
+
+// --- Partículas (vapor, burbujas, gotas, agua en mangueras)
+const particles = [];
+function pool(n, geo, mat, order=5){ const arr = []; for (let i=0;i<n;i++){ const m = new THREE.Mesh(geo, mat); m.visible = false; m.renderOrder = order; scene.add(m); const p = { m, on:false }; arr.push(p); particles.push(p); } return arr; }
+function spawn(arr, init){ const p = arr.find(p => !p.on); if (!p) return null; p.on = true; p.m.visible = true; Object.assign(p, init); return p; }
+function kill(p){ p.on = false; p.m.visible = false; }
+const puffMat = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.75, depthWrite:false });
+const P = {
+  steam: pool(26, new THREE.SphereGeometry(0.26,8,6), puffMat, 4),
+  cond: pool(30, new THREE.SphereGeometry(0.36,8,6), puffMat, 4),
+  escape: pool(18, new THREE.SphereGeometry(0.7,10,8), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.55, depthWrite:false }), 6),
+  bubG: pool(18, new THREE.SphereGeometry(0.22,8,6), puffMat, 2),
+  bubS: pool(14, new THREE.SphereGeometry(0.24,8,6), puffMat, 2),
+  drops: pool(16, new THREE.SphereGeometry(0.2,8,6), M.dist, 2),
+  hose: pool(40, new THREE.SphereGeometry(0.22,6,5), new THREE.MeshBasicMaterial({ color:0x2F8FC4 }), 5),
+  fdrop: pool(10, new THREE.SphereGeometry(0.18,8,6), M.dist, 2),
+  spurt: pool(16, new THREE.SphereGeometry(0.22,8,6), M.water, 5),
+};
+const emit = { steam:0, cond:0, bubG:0, bubS:0, drops:0, hose:0, fdrop:0, escape:0, spurt:0 };
+const outPath = new THREE.CurvePath(); outPath.add(cond.headCurve); outPath.add(new THREE.LineCurve3(A.clone(), B.clone())); outPath.add(cond.adCurve);
+const H = EQUIPO.home;
+function every(key, rate, dt, fn){ emit[key] += rate*dt; while (emit[key] >= 1){ emit[key] -= 1; fn(); } }
+
+function updateOperate(dt){
+  const T = performance.now()/1000, dts = dt*op.vel;                               // dts: tiempo del proceso (acelerable)
+  // --- calor y vapor
+  const heating = op.llama > 0 && op.gen > 8;
+  op.T = heating ? Math.min(1, op.T + dts*(op.llama === 2 ? 0.12 : 0.06)) : Math.max(0, op.T - dts*0.05);
+  const boiling = op.T >= 1 && heating, rate = boiling ? (op.llama === 2 ? 1.6 : 0.8) : 0;   // mL de vapor por segundo
+  const dV = rate*dts; op.gen = Math.max(0, op.gen - dV);
+  // imprevisto: el material vegetal tapa la salida del tubo de vapor
+  if (!op.obstOk && !op.obst && op.Vpass >= op.obstAt){ op.obst = true; toast('Algo cambió en el tubo de seguridad. Mira el generador.', 'warn'); }
+  if (op.obst){ op.press = boiling ? op.press + dt : Math.max(0, op.press - dt*2);      // tiempo real: ~12 s para reaccionar, aun a ×5
+    if (op.press > 12 && boiling){ op.spill = true; op.gen = Math.max(0, op.gen - dts*1.2); op.lostSpill += dts*1.2; }
+    if (op.llama === 0 && op.T < 0.7){ op.obst = false; op.obstOk = true; op.press = 0; op.spill = false;
+      toast('Desarmaste y retiraste el tapón de hojas del tubo de vapor. Puedes volver a calentar.', 'ok'); } }
+  const toSample = op.obst ? 0 : dV;
+  op.Ts = toSample > 0 ? Math.min(1, op.Ts + toSample/25) : Math.max(0, op.Ts - dts*0.02);
+  op.cond = Math.min(60, op.cond + toSample*(1 - op.Ts)*0.9);
+  const passing = op.Ts > 0.6 && toSample > 0 ? rate : 0, dP = passing ? toSample : 0;
+  // aceite: sale de forma exponencial con el vapor que atraviesa la planta
+  const pf0 = op.pf; op.Vpass += dP; op.pf = Math.exp(-op.Vpass/K_EXT); const dOil = op.oilTot*(pf0 - op.pf);
+  op.jf = op.pump ? Math.min(1, op.jf + dt*0.5) : Math.max(0, op.jf - dt*0.25);
+  if (dP){ if (op.jf > 0.8 && op.rw < REC_MAX){ op.rw += dP*0.98; op.ro += dOil; }
+    else { op.lostOil += dOil; if (op.rw >= REC_MAX) op.overflow = true; } }
+  // temperaturas
+  const Tg = 20 + (op.Tw - 20)*op.T;
+  const thT = passing ? op.Tw - (op.Tw - op.dal.T)*Math.min(1, op.pf/0.15) : 20;    // sin vapor, el termómetro se enfría
+  op.Th += (thT - op.Th)*Math.min(1, dts*(passing ? 0.8 : 0.04));
+  // --- refrigerante y piezas animadas
+  cond.water.scale.y = Math.max(0.001, cond.Lj*op.jf);
+  pump.led.color.set(op.pump ? 0x3ED37A : 0x55606a);
+  burner.flame.visible = op.llama > 0;
+  if (op.llama > 0){ const k = (op.llama === 2 ? 1.2 : 0.75) * (1 + Math.sin(T*23)*0.05 + Math.sin(T*37)*0.04); burner.flame.scale.set(op.llama === 2 ? 1.25 : 1, k, op.llama === 2 ? 1.25 : 1); }
+  burner.handle.rotation.y += ((op.llama > 0 ? 0 : Math.PI/2) - burner.handle.rotation.y) * Math.min(1, dt*10);
+  fun.handle.rotation.x += ((op.llaveE ? 0 : Math.PI/2) - fun.handle.rotation.x) * Math.min(1, dt*10);
+  fun.stopper.visible = op.tapon;
+  // tubo de seguridad: la columna sube con la presión; con obstrucción sube hasta rebosar
+  const target = op.obst ? Math.min(31, 4 + op.press*2.4) : (boiling ? (op.llama === 2 ? 10 : 3.6) + Math.sin(T*6)*0.4 : 0);
+  op.colH += (target - op.colH) * Math.min(1, dt*2);
+  const wl = H.generador[1] + 0.15 + genLevel();
+  gen.col.position.y = wl - H.generador[1]; gen.col.scale.y = Math.max(0.01, Math.min(52.2 - wl, op.colH + 0.6));
+  smp.fog.material.opacity = Math.min(0.42, op.Ts*0.42) * (toSample > 0 ? 1 : op.Ts);
+  // --- decantación: sale primero la fase de abajo
+  if (op.stage === 'decantar' && op.llaveE){
+    if (op.tapon) op.flowStalled += dt;
+    else { const db = dense(), bottom = db ? 'fo' : 'fw', top = db ? 'fw' : 'fo';
+      const flow = (op[bottom] > 4 ? 3 : 0.3)*dt;                  // cerca de la interfase, gota a gota
+      const from = op[bottom] > 0.001 ? bottom : top, d = Math.min(op[from], from === bottom ? flow : 0.3*dt);
+      op[from] -= d; if (from === 'fw') op.cw += d; else op.co += d; } }
+  syncLiquids();
+  // --- partículas
+  every('steam', boiling ? (op.llama === 2 ? 18 : 12) : 0, dt, () => spawn(P.steam, { u:0 }));
+  for (const p of P.steam) if (p.on){ p.u += dt*0.45; if (p.u >= (op.obst ? 0.92 : 1)) kill(p); else p.m.position.copy(steamCurve.getPointAt(p.u)); }
+  every('bubG', boiling ? 10 : (op.T > 0.7 && heating ? 3 : 0), dt, () => { const a = Math.random()*6.28, r = Math.random()*3.2;
+    spawn(P.bubG, { x:H.generador[0] + Math.cos(a)*r, z:Math.sin(a)*r, y:H.generador[1] + 0.6, top:wl - 0.2 }); });
+  for (const p of P.bubG) if (p.on){ p.y += dt*(4 + Math.random()*2); if (p.y >= p.top) kill(p); else p.m.position.set(p.x, p.y, p.z); }
+  every('bubS', toSample ? 9 : 0, dt, () => spawn(P.bubS, { x:-12.6 + (Math.random()-0.5), y:3.8, z:(Math.random()-0.5), vx:(Math.random()-0.5)*1.5 }));
+  for (const p of P.bubS) if (p.on){ p.y += dt*3.5; p.x += p.vx*dt; if (p.y > 12) kill(p); else p.m.position.set(p.x, p.y, p.z); }
+  every('cond', passing ? 16 : 0, dt, () => spawn(P.cond, { u:0 }));
+  for (const p of P.cond) if (p.on){ p.u += dt*0.32; const limit = op.jf > 0.8 ? 0.62 : 1;
+    if (p.u >= limit){ kill(p); if (limit === 1) spawn(P.escape, { x:30.3, y:7, z:0, life:0 }); continue; }
+    p.m.position.copy(outPath.getPointAt(p.u)); p.m.scale.setScalar(op.jf > 0.8 && p.u > 0.3 ? Math.max(0.15, 1 - (p.u - 0.3)/0.32) : 1); }
+  for (const p of P.escape) if (p.on){ p.life += dt; p.y += dt*4.5; p.x += dt*1.2; p.m.position.set(p.x, p.y, p.z); p.m.scale.setScalar(1 + p.life*1.4); if (p.life > 1.6) kill(p); }
+  every('spurt', op.spill ? 9 : 0, dt, () => spawn(P.spurt, { x:H.generador[0] - 0.6, y:52.2, z:0, vx:(Math.random()-0.5)*4, vy:4 + Math.random()*3, vz:(Math.random()-0.5)*4 }));
+  for (const p of P.spurt) if (p.on){ p.vy -= 30*dt; p.x += p.vx*dt; p.y += p.vy*dt; p.z += p.vz*dt; if (p.y < 18) kill(p); else p.m.position.set(p.x, p.y, p.z); }
+  const recTop = 0.15 + recH(op.rw + op.ro);
+  every('drops', passing && op.jf > 0.8 ? 2 + passing*5 : 0, dt, () => spawn(P.drops, { y:7.4, v:0 }));
+  for (const p of P.drops) if (p.on){ p.v -= 60*dt; p.y += p.v*dt; if (p.y <= recTop) kill(p); else p.m.position.set(30.3, p.y, 0); }
+  every('hose', op.pump ? 22 : 0, dt, () => spawn(P.hose, { u:0, c:Math.random() < 0.5 ? 0 : 1 }));
+  for (const p of P.hose) if (p.on){ p.u += dt*0.5; if (p.u >= 1 || !op.pump) kill(p); else p.m.position.copy(pump.curves[p.c].getPointAt(p.u)); }
+  const draining = op.stage === 'decantar' && op.llaveE && !op.tapon && (op.fw + op.fo) > 0.001;
+  const oilOut = dense() ? op.fo > 0.001 : op.fw <= 0.001;
+  every('fdrop', draining ? ((dense() ? op.fo : op.fw) > 4 ? 7 : 2.5) : 0, dt, () => spawn(P.fdrop, { y:fun.base, v:-4, oil:oilOut }));
+  for (const p of P.fdrop) if (p.on){ p.v -= 60*dt; p.y += p.v*dt; p.m.material = p.oil ? M.oil : M.dist; if (p.y <= 0.3 + colH(op.cw + op.co)) kill(p); else p.m.position.set(46, p.y, 0); }
+  // --- panel: valores vivos + re-render solo si cambia el estado
+  const st = opStatus(), key = st.join('|') + op.stage + canTransfer() + op.pump + op.llama + op.llaveE + op.tapon + op.vel + op.everOn;
+  if (key !== op.lastKey) renderOperatePanel();
+  setTxt('vGen', `${fmt(op.gen,0)} mL · ${fmt(Tg)} °C`); setTxt('vTh', fmt(op.Th)); setMeter('mPlant', op.pf);
+  setTxt('vRec', `${fmt(op.rw,0)} mL de agua · ${fmt(op.ro,2)} mL de aceite`);
+  setTxt('vFun', `${fmt(op.fw,0)} mL de agua · ${fmt(op.fo,2)} mL de aceite`); setTxt('vCol', `${fmt(op.cw,1)} mL de agua · ${fmt(op.co,2)} mL de aceite`);
+  setTxt('genState', boiling ? 'Hirviendo' : op.T > 0.05 ? (heating ? 'Calentando' : 'Enfriando') : 'Frío');
+}
+function setMeter(id, v){ const el = document.getElementById(id); if (el) el.style.width = (Math.max(0, Math.min(1, v))*100).toFixed(1) + '%'; }
+function setTxt(id, s){ const el = document.getElementById(id); if (el && el.textContent !== s) el.textContent = s; }
+
+function opStatus(){
+  const pl = PLANTAS[op.planta], boiling = op.T >= 1 && op.llama > 0 && op.gen > 8, passing = boiling && op.Ts > 0.6 && !op.obst, db = dense();
+  if (op.stage === 'decantar'){
+    const bottom = db ? op.fo : op.fw;
+    if (op.llaveE && op.tapon && op.flowStalled > 1.2) return ['warn','No sale nada: con el tapón puesto, el vacío arriba frena el flujo. Quita el tapón.'];
+    if (db){
+      if (op.cw > 0.5) return ['warn','Se te pasó la interfase: está entrando agua al vaso con el aceite. Cierra la llave.'];
+      if (op.llaveE && op.fo <= 0.001) return ['warn','¡Cierra la llave! Ya salió el aceite y ahora viene el agua.'];
+      if (op.llaveE) return ['',`El aceite de ${pl.nombre.toLowerCase()} es más denso que el agua: está abajo y sale primero. Este es tu producto: cierra cuando la interfase llegue a la llave.`];
+      if (op.fo <= 0.01 && op.co > 0) return ['ok','Separación lista: el aceite esencial quedó en el vaso y el agua en el embudo.'];
+      return ['',`Fíjate: el ${pl.comp} (densidad ${fmt(pl.rho,2)} g/mL) se fue al fondo. Quita el tapón y abre la llave.`];
+    }
+    const perd = op.co/Math.max(1e-6, op.co + op.fo);
+    if (perd > 0.15) return ['warn',`Se fue el ${fmt(perd*100,0)} % del aceite por la llave. Debías cerrar cuando la interfase llegó a la llave.`];
+    if (op.llaveE && bottom <= 0.001) return ['warn','¡Cierra la llave! Ya salió el agua y ahora se va el aceite.'];
+    if (!op.llaveE && op.co > 0.01 && op.fw <= 0.5) return ['ok',`Separación lista. Perdiste ${fmt(op.co,2)} mL en la interfase: una pequeña pérdida es normal.`];
+    if (op.llaveE) return ['','Sale la fase acuosa de abajo. Cierra justo cuando la línea entre agua y aceite llegue a la llave.'];
+    if (op.fw <= 0.5 && op.fo > 0) return ['ok','Separación lista: el aceite esencial quedó en el embudo.'];
+    return ['',`El ${pl.comp} (densidad ${fmt(pl.rho,2)} g/mL) flota sobre el agua. Quita el tapón y abre la llave.`];
+  }
+  if (op.spill) return ['warn','¡El agua rebosa por el tubo de seguridad! Apaga el mechero: el vapor no tiene salida.'];
+  if (op.obst) return ['warn','El agua sube por el tubo de seguridad y ya no burbujea la muestra: el tubo de vapor está obstruido. Apaga el mechero y deja enfriar.'];
+  if (op.llama > 0 && op.gen <= 8) return ['warn','Generador seco: apaga la llama ya. Calentar un balón vacío puede romperlo.'];
+  if (op.overflow && op.llama > 0) return ['warn','El receptor está lleno y el destilado se derrama. Apaga el mechero.'];
+  if (passing && op.jf <= 0.8) return ['warn','El vapor sale sin condensar por la alargadera y el aceite se pierde con él. Enciende el agua del refrigerante.'];
+  if (op.llama > 0 && !op.pump) return ['warn','Primero el agua del refrigerante y después el calor.'];
+  if (boiling && op.llama === 2) return ['warn','Llama fuerte: el agua sube por el tubo de seguridad y la ebullición violenta puede arrastrar agua líquida a la muestra. Baja a suave.'];
+  if (op.llama > 0 && op.gen < 80) return ['warn','Queda poca agua en el generador. Apaga antes de que se seque.'];
+  if (passing && op.Th > op.Tw - 0.6) return ['ok',`El termómetro llegó a ${fmt(op.Tw)} °C, la ebullición del agua pura: ya casi no sale aceite. Es momento de apagar.`];
+  if (passing && op.pf < 0.15) return ['',`La temperatura empieza a subir hacia ${fmt(op.Tw)} °C: queda poco aceite en la planta.`];
+  if (passing && op.Th > op.dal.T - 0.6) return ['ok',`Destila a ${fmt(op.dal.T)} °C, por debajo de los ${fmt(op.Tw)} °C del agua y muy lejos de los ${fmt(pl.Tb,0)} °C del ${pl.comp}. Así funciona el arrastre de vapor.`];
+  if (passing) return ['','El vapor con aceite llega al termómetro y se condensa en el refrigerante.'];
+  if (boiling) return ['','Hierve el generador. El vapor atraviesa la planta y calienta el balón de la muestra: al principio se condensa ahí mismo.'];
+  if (op.llama > 0) return ['','Calentando el agua del generador…'];
+  if (op.everOn && op.T > 0.05) return ['','Enfriando. Al bajar la presión, el tubo de seguridad deja entrar aire y evita que el líquido de la muestra retroceda.'];
+  if (canTransfer()) return ['ok','Apagado. Ya puedes pasar el destilado al embudo de decantación.'];
+  return ['','Elige la planta y el lugar. Luego enciende la bomba del refrigerante y el mechero.'];
+}
+
+function balanceHTML(){
+  const pl = PLANTAS[op.planta], db = dense(), recup = db ? op.co : op.fo, perdDec = db ? op.fo : op.co;
+  const rend = recup*pl.rho/MASA*100;
+  return `<div class="block"><h4>Balance de aceite</h4><table class="res"><tbody>
+    <tr><td>En los ${MASA} g de planta (rendimiento típico ~${fmt(pl.rend,1)} %)</td><td class="n">${fmt(op.oilTot,2)} mL</td></tr>
+    <tr><td>Quedó en la planta</td><td class="n">${fmt(op.oilTot*op.pf,2)} mL</td></tr>
+    <tr><td>Perdido sin refrigerar o por rebalse</td><td class="n ${op.lostOil > 0.01 ? 'tag-warn' : ''}">${fmt(op.lostOil,2)} mL</td></tr>
+    <tr><td>Perdido en la separación</td><td class="n ${perdDec > 0.01 ? 'tag-warn' : ''}">${fmt(op.stage === 'decantar' ? perdDec : 0,2)} mL</td></tr>
+    <tr><td><b>Aceite recuperado</b></td><td class="n"><b>${fmt(op.stage === 'decantar' ? recup : 0,2)} mL</b></td></tr>
+    <tr><td>Rendimiento obtenido (masa de aceite / masa de planta)</td><td class="n">${fmt(op.stage === 'decantar' ? rend : 0,2)} %</td></tr>
+  </tbody></table></div>`;
+}
+function renderOperatePanel(){
+  const [kind, msg] = opStatus(), dec = op.stage === 'decantar', pl = PLANTAS[op.planta], d = op.dal, P = LUGARES[op.lugar].P;
+  const seg = (name, opts, cur, attr, disabled=false) => `<div class="seg" role="group" aria-label="${name}">${opts.map((t,i) => `<button ${attr}="${i}" aria-pressed="${cur===i}" ${disabled?'disabled':''}>${t}</button>`).join('')}</div>`;
+  const pKeys = Object.keys(PLANTAS), lKeys = Object.keys(LUGARES);
+  panel.innerHTML = `<div class="block"><h4>Modo operar</h4><h2>Destila y separa</h2></div>
+    <div class="ctl"><h4>Muestra (100 g)</h4>${seg('Planta', pKeys.map(k => PLANTAS[k].nombre), pKeys.indexOf(op.planta), 'data-pl', op.everOn)}
+      ${seg('Lugar', lKeys.map(k => LUGARES[k].nombre), lKeys.indexOf(op.lugar), 'data-lu', op.everOn)}
+      ${op.everOn ? '<span class="note">Para cambiar la muestra o el lugar, reinicia.</span>' : ''}</div>
+    <div class="ctl"><h4>Agua del refrigerante (bomba)</h4>${seg('Bomba',['Apagada','Encendida'], op.pump?1:0, 'data-pu', dec)}</div>
+    <div class="ctl"><h4>Mechero</h4>${seg('Mechero',['Apagado','Suave','Fuerte'], op.llama, 'data-ll', dec)}</div>
+    <div class="reading"><div><h4>Termómetro</h4><span class="note">Vapor que entra al refrigerante</span></div><div><span class="v" id="vTh">${fmt(op.Th)}</span> <span class="u">°C</span></div></div>
+    <div class="meters">
+      <div class="mrow"><span>Generador · <b id="genState">Frío</b> · <span id="vGen"></span></span></div>
+      <div class="mrow"><span>Aceite que queda en la planta</span><div class="meter"><i class="g" id="mPlant"></i></div></div>
+      <div class="mrow"><span>Receptor · <span id="vRec"></span></span></div>
+      ${dec ? `<div class="mrow"><span>Embudo · <span id="vFun"></span></span></div><div class="mrow"><span>Vaso colector · <span id="vCol"></span></span></div>` : ''}
+    </div>
+    <div class="state ${kind}">${msg}</div>
+    <div class="rin-row"><button class="btn" id="lookOil">Ver la capa de aceite</button>
+      ${seg('Velocidad de la simulación',['Tiempo real','× 5'], op.vel === 1 ? 0 : 1, 'data-ve')}</div>
+    <div class="ctl"><h4>Separación</h4>
+      ${dec ? `${seg('Tapón',['Tapón puesto','Tapón quitado'], op.tapon?0:1, 'data-tp')}${seg('Llave del embudo',['Llave cerrada','Llave abierta'], op.llaveE?1:0, 'data-le')}`
+            : `<button class="btn" id="toFun" ${canTransfer()?'':'disabled'}>Pasar al embudo</button><span class="note">Se habilita con el mechero apagado, el sistema frío y destilado en el receptor.</span>`}</div>
+    ${balanceHTML()}
+    <details class="ph"><summary>¿Por qué destila por debajo de ${fmt(op.Tw)} °C?</summary><div class="calc">
+      En ${LUGARES[op.lugar].nombre}: P<sub>atm</sub> ≈ ${P} mmHg<br>
+      Agua sola: hierve a ${fmt(op.Tw)} °C<br>
+      Mezcla: hierve cuando P<sub>agua</sub> + P<sub>${pl.comp}</sub> = P<sub>atm</sub><br>
+      A ${fmt(d.T)} °C: ${fmt(d.pw,0)} + ${fmt(d.po,0)} = ${P} mmHg<br>
+      El vapor lleva ~${fmt(d.x*100,1)} % de moléculas de ${pl.comp}.<br>
+      <span class="note">P<sub>agua</sub> con la ecuación de Antoine; P<sub>aceite</sub> estimada con Clausius-Clapeyron y la regla de Trouton (aproximación).</span></div></details>
+    <button class="btn" id="opReset">Reiniciar</button>
+    <p class="note">Química real en temperaturas y volúmenes; tiempos y caudal de vapor simplificados. Las capas de aceite muy delgadas se dibujan con un grosor mínimo para que se vean.</p>`;
+  panel.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { op.planta = pKeys[+b.dataset.pl]; resetOperate(); });
+  panel.querySelectorAll('[data-lu]').forEach(b => b.onclick = () => { op.lugar = lKeys[+b.dataset.lu]; resetOperate(); });
+  panel.querySelectorAll('[data-ve]').forEach(b => b.onclick = () => { op.vel = b.dataset.ve === '1' ? 5 : 1; renderOperatePanel(); });
+  panel.querySelectorAll('[data-pu]').forEach(b => b.onclick = () => setPump(b.dataset.pu === '1'));
+  panel.querySelectorAll('[data-ll]').forEach(b => b.onclick = () => setFlame(+b.dataset.ll));
+  panel.querySelectorAll('[data-tp]').forEach(b => b.onclick = () => setStopper(b.dataset.tp === '0'));
+  panel.querySelectorAll('[data-le]').forEach(b => b.onclick = () => setValve(b.dataset.le === '1'));
+  $('#lookOil').onclick = lookAtOil;
+  const tf = $('#toFun'); if (tf) tf.onclick = () => canTransfer() && transfer();
+  $('#opReset').onclick = () => resetOperate();
+  op.lastKey = [kind,msg].join('|') + op.stage + canTransfer() + op.pump + op.llama + op.llaveE + op.tapon + op.vel + op.everOn;
+}
+
+/* ====================== 9) Cambio de modo, eventos y bucle ====================== */
+function setMode(name){ if (mode === MODES[name]) return; mode?.exit(); mode = MODES[name];
+  document.querySelectorAll('.modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === name)); mode.enter(); }
+document.querySelectorAll('.modes button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', ev => { downAt = [ev.clientX, ev.clientY];
+  if (mode === MODES.ensamblar && ev.button === 0 && startDrag(ev)){ renderer.domElement.setPointerCapture(ev.pointerId); ev.stopImmediatePropagation(); } }, { capture:true });
+renderer.domElement.addEventListener('pointermove', ev => {
+  if (drag){ moveDrag(ev); return; }
+  if (mode === MODES.ensamblar){ if (!ev.buttons) renderer.domElement.style.cursor = pick(ev, looseList()) ? 'grab' : ''; return; }
+  if (ev.buttons) return;
+  const hit = pick(ev);
+  if (mode === MODES.operar){ renderer.domElement.style.cursor = hit?.object.userData.ctrl ? 'pointer' : ''; return; }
+  const key = hit ? keyOf(hit.object) : null;
+  if (key !== hovered){ if (hovered && hovered !== selected) setHighlight(hovered,false); hovered = key; if (hovered && hovered !== selected) setHighlight(hovered,true,0.12); }
+  renderer.domElement.style.cursor = key ? 'pointer' : ''; });
+renderer.domElement.addEventListener('pointerup', ev => { if (drag){ endDrag(); return; }
+  if (!downAt || Math.hypot(ev.clientX-downAt[0], ev.clientY-downAt[1]) > 5) return; mode.click?.(pick(ev)); });
+const curTheta = () => new THREE.Spherical().setFromVector3(new V3().subVectors(camera.position, controls.target)).theta;
+$('#tRotL').onclick = () => flyTo({ theta: curTheta() - Math.PI/4 }, 600);
+$('#tRotR').onclick = () => flyTo({ theta: curTheta() + Math.PI/4 }, 600);
+$('#tIn').onclick = () => flyTo({ zoom: Math.min(controls.maxZoom, camera.zoom*1.35) }, 350);
+$('#tOut').onclick = () => flyTo({ zoom: Math.max(controls.minZoom, camera.zoom/1.35) }, 350);
+$('#tHome').onclick = () => flyTo(mode.view());
+$('#tLabels').onclick = e => { labelsOn = !labelsOn; e.currentTarget.setAttribute('aria-pressed', labelsOn); stage.classList.toggle('labels-off', !labelsOn); };
+function applyTheme(){ outlineMat.uniforms.c.value.set(cssVar('--ink3d')); accentColor.set(cssVar('--accent'));
+  for (const m of glassMats){ m.uniforms.tint.value.set(cssVar('--glass')); m.uniforms.ink.value.set(cssVar('--glassink')); m.uniforms.acc.value.set(cssVar('--accent')); }
+  grid.material.color.set(cssVar('--grid')); benchMat.color.set(cssVar('--bench')); }
+function resize(){ const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); const a = w/h;
+  camera.left = -VIEW*a/2; camera.right = VIEW*a/2; camera.top = VIEW/2; camera.bottom = -VIEW/2; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(stage);
+document.fonts?.ready.then(() => hotspots.forEach(h => h.tw = 0));
+renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('El navegador reinició el 3D. Recarga si no vuelve solo.', 'warn'); });
+applyTheme(); resize(); resetOperate(false); setMode('explorar'); $('#loading').remove();
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => { const dt = Math.min(clock.getDelta(), 0.1);
+  stepTween(dt); stepAnims(dt); controls.update(); mode.update(dt); renderer.render(scene, camera); });
+</script>

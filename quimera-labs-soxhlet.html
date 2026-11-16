@@ -1,0 +1,924 @@
+<title>QUIMERA LABS Extracción Soxhlet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: banco de laboratorio a pantalla completa (escena 3D) + cuaderno de práctica a la derecha; en móvil se apilan. */
+:root{
+  --bg:#FFFFFF; --surface:#FFFFFF; --ink:#15212C; --muted:#566874; --line:#D5DEE3;
+  --accent:#C2276F; --accent-soft:#F7DCE8; --ok:#23794E; --warn:#9A5B00;
+  --ink3d:#15212C; --grid:#D3DCE1; --glass:#BFE2EC; --bench:#F1F4F6; --glassink:#15212C; --water:#8EC9DE; --oil:#E0A93B; --leaf:#5E9E45; color-scheme:light;
+  --f-display:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;min-height:0}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;justify-content:space-between;
+  padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-bottom:1px solid var(--line)}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.eyebrow b{color:var(--accent);font-weight:500}
+h1{margin:0;font-family:var(--f-display);font-stretch:78%;font-weight:800;font-size:clamp(22px,3vw,30px);letter-spacing:.01em;line-height:1.05;text-wrap:balance}
+.modes{display:flex;border:1.5px solid var(--ink);border-radius:999px;padding:3px;gap:2px;background:var(--surface)}
+.modes button{font:600 13px/1 var(--f-display);font-stretch:85%;letter-spacing:.08em;text-transform:uppercase;border:0;background:transparent;color:var(--ink);
+  padding:9px 14px;border-radius:999px;cursor:pointer;display:flex;gap:7px;align-items:center}
+.modes button .n{font-family:var(--f-mono);font-weight:400;opacity:.6}
+.modes button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.modes button:focus-visible,.tool:focus-visible,.btn:focus-visible,.seg button:focus-visible,.chip:focus-visible,.dot:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+main{display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:0}
+.stage{position:relative;overflow:hidden;min-height:0;touch-action:none}
+.stage canvas{display:block;width:100%;height:100%}
+#overlay{position:absolute;inset:0;pointer-events:none}
+#overlay svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.leader{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 4}
+.tie{fill:none;stroke:var(--ink);stroke-width:1.5}
+.dot{position:absolute;left:0;top:0;pointer-events:auto;width:18px;height:18px;border-radius:50%;border:0;padding:0;cursor:pointer;background:var(--surface);
+  box-shadow:0 0 0 2px var(--ink),inset 0 0 0 4px var(--surface),inset 0 0 0 9px var(--accent)}
+.dot.sel{box-shadow:0 0 0 2px var(--accent),inset 0 0 0 4px var(--surface),inset 0 0 0 9px var(--accent)}
+.tag{position:absolute;left:0;top:0;pointer-events:auto;font:700 11.5px/1 var(--f-display);font-stretch:85%;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;
+  background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);border-radius:6px;padding:6px 8px;cursor:pointer}
+.tag.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.locked .toolbar{display:none}
+.meters{display:flex;flex-direction:column;gap:10px}
+.mrow{display:flex;flex-direction:column;gap:5px;font-size:13.5px}
+.meter{height:12px;border:1.5px solid var(--ink);border-radius:6px;overflow:hidden;display:flex;background:var(--surface)}
+.meter i{display:block;height:100%;transition:width .3s}
+.meter i.w{background:var(--water)} .meter i.o{background:var(--oil)} .meter i.g{background:var(--leaf)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.rin-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rin-row .seg{flex:1;min-width:180px}
+.res{width:100%;border-collapse:collapse;font-size:13.5px}
+.res td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.res td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.tag-ok{color:var(--ok);font-weight:600}.tag-warn{color:var(--warn);font-weight:600}
+.calc{font-family:var(--f-mono);font-size:12.5px;background:var(--accent-soft);border-radius:8px;padding:10px 12px;line-height:1.75;margin-top:8px}
+.calc .note{font-family:var(--f-body)}
+details.ph summary{cursor:pointer;font-size:13.5px;color:var(--muted)}
+.btn:disabled:hover{background:transparent;color:var(--ink)}
+.labels-off .tag,.labels-off .tie{display:none}
+.hdr-right{display:flex;gap:10px;align-items:center}
+.theme{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--ink);background:var(--surface);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.theme svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.theme:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.popup{position:absolute;top:16px;left:16px;width:min(300px,calc(100% - 32px));background:var(--surface);border:1.5px solid var(--ink);border-radius:10px;
+  padding:14px 16px;box-shadow:6px 6px 0 var(--line);display:flex;flex-direction:column;gap:8px}
+.popup h3{margin:0;font:800 17px/1.15 var(--f-display);font-stretch:80%;letter-spacing:.04em;text-transform:uppercase;padding-right:28px}
+.popup p{margin:0;color:var(--muted);font-size:14px}
+.popup .x{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;background:transparent;color:var(--ink);cursor:pointer;font-size:18px;border-radius:6px}
+.btn{align-self:flex-start;font:700 12px/1 var(--f-display);font-stretch:85%;letter-spacing:.09em;text-transform:uppercase;border:1.5px solid var(--ink);
+  background:transparent;color:var(--ink);border-radius:7px;padding:9px 12px;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.btn:hover{background:var(--ink);color:var(--surface)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.toolbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:2px;
+  background:var(--surface);border:1.5px solid var(--ink);border-radius:12px;padding:4px}
+.tool{width:38px;height:36px;border:0;border-radius:8px;background:transparent;color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.tool:hover{background:var(--accent-soft)}
+.tool[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.tool svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sep{width:1px;background:var(--line);margin:6px 3px}
+.toast{position:absolute;left:16px;right:16px;bottom:calc(66px + env(safe-area-inset-bottom,0px));margin-inline:auto;width:fit-content;max-width:min(520px,calc(100% - 32px));
+  background:var(--ink);color:var(--surface);border-radius:8px;padding:9px 14px;font-size:14px;text-align:center;transition:opacity .25s}
+.toast.warn{background:var(--warn);color:#fff}
+.toast.ok{background:var(--ok);color:#fff}
+.hint{position:absolute;right:16px;top:14px;font-family:var(--f-mono);font-size:11.5px;color:var(--muted);text-align:right;line-height:1.6}
+
+aside{border-left:1px solid var(--line);background:var(--surface);overflow-y:auto;min-height:0;min-width:0;
+  padding-block:20px 28px;padding-left:20px;padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+aside h2{margin:0;font:800 24px/1.1 var(--f-display);font-stretch:78%;letter-spacing:.02em;text-transform:uppercase;text-wrap:balance}
+aside h4{margin:0 0 4px;font:700 11.5px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+aside p{margin:0}
+.lead{color:var(--muted)}
+.spec{font-family:var(--f-mono);font-size:12.5px;border:1px dashed var(--line);border-radius:6px;padding:8px 10px;color:var(--ink)}
+.block{display:flex;flex-direction:column;gap:4px}
+.block.err{border-left:3px solid var(--warn);padding-left:12px}
+.block.err h4{color:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:600 12.5px/1 var(--f-body);border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:7px 11px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.steps li{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start;padding:9px 0;border-bottom:1px solid var(--line)}
+.steps .st{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font:500 11px/1 var(--f-mono);color:var(--muted)}
+.steps li.done .st{background:var(--ok);border-color:var(--ok);color:#fff}
+.steps li.next .st{border-color:var(--accent);color:var(--accent)}
+.steps li.next b{color:var(--accent)}
+.steps li.locked{opacity:.55}
+.steps small{display:block;color:var(--muted);font-size:13px}
+.progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.ctl{display:flex;flex-direction:column;gap:8px}
+.seg{display:flex;border:1.5px solid var(--ink);border-radius:9px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink);font:600 13px/1 var(--f-body);padding:10px 6px;cursor:pointer}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.reading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border:1.5px solid var(--ink);border-radius:9px;padding:12px 14px}
+.reading .v{font:500 30px/1 var(--f-mono);font-variant-numeric:tabular-nums}
+.reading .u{font:500 13px var(--f-mono);color:var(--muted)}
+.swatch{display:flex;gap:10px;align-items:center}
+.swatch i{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--ink);flex:none}
+.state{border-radius:8px;padding:10px 12px;background:var(--accent-soft);font-size:14px}
+.state.warn{background:transparent;border:1.5px solid var(--warn)}
+.state.ok{background:transparent;border:1.5px solid var(--ok)}
+.note{font-size:13px;color:var(--muted)}
+.loading{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+
+@media (max-width:860px){
+  .app{height:auto}
+  main{grid-template-columns:1fr}
+  .stage{height:62vh;min-height:430px}
+  aside{border-left:0;border-top:1px solid var(--line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .hint{display:none}
+  .modes button{padding:9px 11px}
+}
+@media (prefers-reduced-motion: reduce){ .progress i,.toast{transition:none} }
+</style>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <span class="eyebrow"><b>QUIMERA LABS</b> · Equipo 03</span>
+      <h1>Extracción Soxhlet</h1>
+    </div>
+    <div class="hdr-right">
+    <nav class="modes" aria-label="Modo">
+      <button data-mode="explorar" aria-pressed="true"><span class="n">1</span>Explorar</button>
+      <button data-mode="ensamblar" aria-pressed="false"><span class="n">2</span>Ensamblar</button>
+      <button data-mode="operar" aria-pressed="false"><span class="n">3</span>Operar</button>
+    </nav>
+    </div>
+  </header>
+  <main>
+    <section class="stage" id="stage" aria-label="Modelo 3D del montaje">
+      <div class="loading" id="loading">Montando el equipo…</div>
+      <div id="overlay"><svg aria-hidden="true"><path class="tie" id="ties" d=""></path><path class="leader" id="leader" d=""></path></svg></div>
+      <div class="popup" id="popup" hidden>
+        <button class="x" id="popClose" aria-label="Cerrar">×</button>
+        <h3 id="popTitle"></h3>
+        <p id="popText"></p>
+        <button class="btn" id="popZoom"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Acercar</button>
+      </div>
+      <div class="hint" id="hint">Arrastra para girar · rueda para zoom<br>clic derecho para desplazar</div>
+      <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+      <div class="toolbar" role="toolbar" aria-label="Vista">
+        <button class="tool" id="tRotL" title="Girar a la izquierda" aria-label="Girar a la izquierda"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4h4"/></svg></button>
+        <button class="tool" id="tRotR" title="Girar a la derecha" aria-label="Girar a la derecha"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4h-4"/></svg></button>
+        <span class="sep"></span>
+        <button class="tool" id="tOut" title="Alejar" aria-label="Alejar"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <button class="tool" id="tIn" title="Acercar" aria-label="Acercar"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button>
+        <span class="sep"></span>
+        <button class="tool" id="tHome" title="Vista inicial" aria-label="Vista inicial"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
+        <button class="tool" id="tLabels" title="Mostrar etiquetas" aria-label="Mostrar etiquetas" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 12h3M9 7h12v10H9z"/><circle cx="4" cy="12" r="1.5"/></svg></button>
+      </div>
+    </section>
+    <aside id="panel" aria-live="polite"></aside>
+  </main>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* =====================================================================
+   1) MANIFIESTO DEL EQUIPO — extracción Soxhlet.
+   Mismo motor que los equipos 01 y 02: cambian el manifiesto, las piezas
+   (sección 4) y el modo Operar (sección 8).
+   ===================================================================== */
+const EQUIPO = {
+  id: 'soxhlet',
+  partes: {
+    soporte: { nombre:'Soporte universal y pinzas', tag:'Soporte y pinzas', corto:'Varilla con dos pinzas: una sujeta el cuello del balón y otra el refrigerante.',
+      funcion:'Mantiene vertical una columna de vidrio de más de medio metro. Las juntas esmeriladas no deben cargar el peso del refrigerante.',
+      uso:'Sujeta el balón por el cuello y el refrigerante por su camisa, alineados en vertical. Aprieta lo justo para que no se deslicen.',
+      error:'Sujetar solo el balón: todo el peso del extractor y del refrigerante cae sobre las juntas y pueden romperse.',
+      dato:'Varilla de 70 cm · pinzas de tres dedos con funda de goma', requiere:[] },
+    manta: { nombre:'Manta calefactora', corto:'Calienta el balón de forma pareja y sin llama.',
+      funcion:'Envuelve el fondo del balón con una resistencia eléctrica aislada. Con disolventes inflamables como el hexano, la llama abierta está prohibida.',
+      uso:'El balón debe asentarse en la cavidad sin forzar. Sube la potencia poco a poco hasta un hervor suave y constante.',
+      error:'Usar un mechero con hexano: sus vapores son más densos que el aire, se extienden por la mesa y pueden encenderse.',
+      dato:'Para balones de 250 mL · regulador de potencia', requiere:['soporte'] },
+    balon: { nombre:'Balón con hexano', tag:'Balón con disolvente', corto:'Contiene el disolvente que hierve; aquí se acumula la grasa extraída.',
+      funcion:'El hexano hierve, sube como vapor y vuelve como líquido en cada ciclo. La grasa no se evapora a esa temperatura, así que se va acumulando en el balón.',
+      uso:'Pésalo vacío antes de empezar: esa es la tara. Carga entre 1,5 y 2 veces el volumen del sifón y añade piedras de ebullición.',
+      error:'Poner poco disolvente: cuando la cámara se llena, el balón queda casi seco y el extracto se sobrecalienta.',
+      dato:'Balón de fondo redondo 250 mL · hexano, hierve a 69 °C a nivel del mar', requiere:['manta'] },
+    piedras: { nombre:'Piedras de ebullición', corto:'Trocitos porosos que hacen que el líquido hierva parejo.', sub:'balon',
+      funcion:'Sus poros dan puntos donde se forman las burbujas. Sin ellas, el líquido se sobrecalienta y hierve de golpe, con sacudidas (bumping).',
+      uso:'Agrégalas con el disolvente frío, antes de calentar. Usa piedras nuevas en cada extracción.',
+      error:'Echarlas a un líquido caliente: todo el líquido sobrecalentado puede hervir de golpe y salpicar.',
+      dato:'Porcelana porosa · de un solo uso' },
+    extractor: { nombre:'Extractor Soxhlet', corto:'Cámara donde el disolvente condensado empapa la muestra y luego vuelve al balón por el sifón.',
+      funcion:'Separa el camino de subida (vapor, por el brazo lateral) del de bajada (líquido, por el sifón). Así la muestra recibe siempre disolvente limpio recién condensado.',
+      uso:'Encaja la junta esmerilada del extractor en el balón sin forzar. Revisa que las juntas estén limpias.',
+      error:'Juntas sucias o mal encajadas: escapan vapores de hexano, que son inflamables.',
+      dato:'Cámara de ~100 mL hasta la curva del sifón · juntas esmeriladas', requiere:['balon'] },
+    brazo: { nombre:'Brazo lateral de vapor', corto:'Tubo ancho por donde el vapor sube del balón al refrigerante.', sub:'extractor',
+      funcion:'Lleva el vapor de hexano desde el balón hasta arriba de la cámara sin pasar por la muestra.',
+      uso:'Debe quedar libre de la pinza. Es el tubo ancho y recto, del lado opuesto al sifón.',
+      error:'Confundirlo con el sifón al describir el equipo: el brazo sube vapor, el sifón baja líquido.',
+      dato:'Tubo recto y ancho' },
+    sifon: { nombre:'Sifón', corto:'Tubo curvo que vacía la cámara de golpe cuando el líquido llega a su curva.', sub:'extractor',
+      funcion:'Funciona como vasos comunicantes: el líquido sube por el sifón al mismo nivel que en la cámara. Cuando supera la curva, el sifón se ceba y vacía toda la cámara en el balón. Cada descarga es un ciclo.',
+      uso:'La muestra debe quedar por debajo de la curva del sifón, para que quede sumergida en cada ciclo.',
+      error:'Cartucho más alto que el sifón: la parte de arriba de la muestra nunca se sumerge y la extracción queda incompleta.',
+      dato:'Tubo delgado en forma de U invertida' },
+    cartucho: { nombre:'Cartucho con la muestra', tag:'Cartucho y muestra', corto:'Dedal de celulosa con la muestra molida y un tapón de algodón.',
+      funcion:'Retiene la muestra sólida y deja pasar el disolvente. El algodón de arriba reparte las gotas y evita que floten partículas.',
+      uso:'Muestra seca, molida y pesada (5,0000 g). Tapa con algodón y verifica que el cartucho quede por debajo de la curva del sifón.',
+      error:'Olvidar el algodón: partículas finas de la muestra pasan por el sifón al balón y el resultado sale más alto que el real.',
+      dato:'Celulosa · muestra de 5,0000 g en balanza analítica', requiere:['extractor'] },
+    condensador: { nombre:'Refrigerante de bolas', tag:'Refrigerante de bolas', corto:'Condensa el vapor de hexano y lo devuelve gota a gota sobre la muestra.',
+      funcion:'El vapor sube por el tubo interior y el agua fría de la camisa lo condensa. Las bolas aumentan la superficie fría y evitan que el vapor escape.',
+      uso:'El agua entra por la boquilla de abajo y sale por la de arriba. El extremo superior queda abierto a la atmósfera.',
+      error:'Taparlo arriba: el sistema queda cerrado, la presión sube al calentar y el vidrio puede reventar.',
+      dato:'Tipo Allihn · 5 bolas', requiere:['cartucho'] },
+    mangueras: { nombre:'Bomba y mangueras', corto:'Circuito de agua fría del refrigerante.',
+      funcion:'Hace circular agua fría por la camisa del refrigerante durante toda la extracción, que puede durar horas.',
+      uso:'Asegura las mangueras con abrazaderas y enciende el agua antes que la manta.',
+      error:'Encender la manta sin agua: el vapor de hexano sale por arriba del refrigerante.',
+      dato:'Manguera de látex de 8 mm · bomba de recirculación', requiere:['condensador'] },
+  },
+  orden: ['soporte','manta','balon','piedras','extractor','brazo','sifon','cartucho','condensador','mangueras'],
+  home: { soporte:[4,0,-3], manta:[0,1.2,0], balon:[0,4.2,0], extractor:[0,15,0], cartucho:[0,18.8,0], condensador:[0,33,0], mangueras:[24,0,-10] },
+  scatter: { soporte:[-38,14], manta:[32,-22], balon:[-16,32], extractor:[26,26], cartucho:[8,38], condensador:[-30,-24], mangueras:[12,34] },
+  ensamble: ['soporte','manta','balon','extractor','cartucho','condensador','mangueras'],
+  lift: { cartucho:16 },              // altura extra al cargarla: el cartucho entra por arriba del extractor
+  pistas: { soporte:'En el centro de la mesa; la varilla queda atrás a la derecha.', manta:'Sobre la base del soporte.', balon:'En la cavidad de la manta.',
+    extractor:'Encajado en el cuello del balón.', cartucho:'Dentro del extractor: llévalo por arriba y suéltalo.',
+    condensador:'Encima del extractor. Va al final: primero se carga el cartucho.', mangueras:'Bomba atrás a la derecha; las mangueras van a las boquillas del refrigerante.' },
+};
+
+/* ====================== 2) Utilidades ====================== */
+const $ = s => document.querySelector(s);
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const V2 = THREE.Vector2, V3 = THREE.Vector3;
+const Y = new V3(0,1,0), Z = new V3(0,0,1);
+
+/* ====================== 3) Núcleo: escena, cámara, render (igual que titulación) ====================== */
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const VIEW = 100;
+const camera = new THREE.OrthographicCamera(-50,50,50,-50,1,2000);
+const HOME_VIEW = { target:new V3(5,29,0), zoom:1.45, theta:0.55, phi:1.12 };
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.42;
+controls.minZoom = 0.45; controls.maxZoom = 6; controls.screenSpacePanning = true;
+{ const s = new THREE.Spherical(300, HOME_VIEW.phi, HOME_VIEW.theta); camera.position.copy(HOME_VIEW.target).add(new V3().setFromSpherical(s));
+  controls.target.copy(HOME_VIEW.target); camera.zoom = HOME_VIEW.zoom; camera.updateProjectionMatrix(); controls.update(); }
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a99a6, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(40,90,55); sun.castShadow = true; sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera, { left:-75, right:75, top:75, bottom:-75, near:1, far:320 }); sun.shadow.bias = -0.0005;
+scene.add(sun);
+const benchMat = new THREE.MeshLambertMaterial({ color:0xf1f4f6 });
+const bench = new THREE.Mesh(new RoundedBoxGeometry(124,2,124,3,1.2), benchMat); bench.position.y = -1; bench.receiveShadow = true; scene.add(bench);
+const grid = new THREE.GridHelper(120, 30); grid.position.y = 0.02; grid.material.transparent = true; grid.material.opacity = 0.7; scene.add(grid);
+
+const gradient = new THREE.DataTexture(new Uint8Array([80,165,255]), 3, 1, THREE.RedFormat);
+gradient.minFilter = gradient.magFilter = THREE.NearestFilter; gradient.needsUpdate = true;
+const toon = (color, extra={}) => new THREE.MeshToonMaterial({ color, gradientMap:gradient, ...extra });
+const outlineMat = new THREE.ShaderMaterial({ uniforms:{ c:{value:new THREE.Color()}, t:{value:0.11} }, side:THREE.BackSide,
+  vertexShader:`uniform float t; void main(){ vec3 p = position + normal * t; gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1.0); }`,
+  fragmentShader:`uniform vec3 c; void main(){ gl_FragColor = vec4(c,1.0); }` });
+const glassMats = [];
+function glassMat(){
+  const m = new THREE.ShaderMaterial({ uniforms:{ tint:{value:new THREE.Color()}, ink:{value:new THREE.Color()}, acc:{value:new THREE.Color()}, hi:{value:0} },
+    transparent:true, depthWrite:false, side:THREE.DoubleSide,
+    vertexShader:`varying vec3 vN; void main(){ vN = normalize(normalMatrix*normal); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader:`uniform vec3 tint; uniform vec3 ink; uniform vec3 acc; uniform float hi; varying vec3 vN;
+      void main(){ vec3 n = normalize(vN); float f = 1.0 - abs(n.z); float rim = smoothstep(0.66, 0.97, f);
+        float band = gl_FrontFacing ? smoothstep(0.22,0.28,n.x) * (1.0 - smoothstep(0.40,0.46,n.x)) : 0.0;
+        vec3 col = mix(tint, ink, rim*0.9) + band*0.55; col = mix(col, acc, hi*0.45);
+        gl_FragColor = vec4(col, 0.10 + rim*0.82 + band*0.35 + hi*0.12); }` });
+  glassMats.push(m); return m;
+}
+
+const pickables = [];
+function mk(geo, mat, parent, { pos=[0,0,0], rot=[0,0,0], outline=true, shadow=true, part=null, sub=null, ctrl=null, order=0, noGhost=false }={}){
+  const m = new THREE.Mesh(geo, mat); m.position.set(...pos); m.rotation.set(...rot);
+  m.castShadow = shadow; m.receiveShadow = true; m.renderOrder = order; if (noGhost) m.userData.noGhost = true;
+  if (outline){ const o = new THREE.Mesh(geo, outlineMat); o.userData.outline = true; o.castShadow = false; o.raycast = ()=>{}; m.add(o); }
+  if (part){ m.userData.part = part; if (sub) m.userData.sub = sub; if (ctrl) m.userData.ctrl = ctrl; pickables.push(m); }
+  parent.add(m); return m;
+}
+const colliderMat = new THREE.MeshBasicMaterial({ visible:false });
+function collider(geo, parent, pos, part, { sub=null, ctrl=null, quat=null }={}){ const m = new THREE.Mesh(geo, colliderMat); m.position.set(...pos); if (quat) m.quaternion.copy(quat);
+  m.userData.part = part; if (sub) m.userData.sub = sub; if (ctrl) m.userData.ctrl = ctrl; pickables.push(m); parent.add(m); return m; }
+function anchor(key, name, pos){ const a = new THREE.Object3D(); a.position.set(...pos); a.userData = { name }; parts[key].group.add(a); parts[key].anchors.push(a); return a; }
+const box = (w,h,d,r=0.35) => new RoundedBoxGeometry(w,h,d,3,r);
+// Cilindro entre dos puntos (varillas, patas, tubos rectos)
+function segment(a, b, r, mat, parent, opts={}){ const A = new V3(...a), B = new V3(...b), d = B.clone().sub(A);
+  const m = mk(new THREE.CylinderGeometry(r, r, d.length(), opts.seg || 14), mat, parent, { ...opts, pos:A.clone().add(B).multiplyScalar(0.5).toArray() });
+  m.quaternion.setFromUnitVectors(Y, d.normalize()); return m; }
+// Tubo curvo por puntos (vidrio doblado, mangueras). Guarda la curva para mover partículas por dentro.
+function tube(pts, r, mat, parent, opts={}){ const curve = new THREE.CatmullRomCurve3(pts.map(p => new V3(...p)), false, 'centripetal');
+  const m = mk(new THREE.TubeGeometry(curve, opts.tseg || 90, r, 10, false), mat, parent, opts); m.userData.curve = curve; return m; }
+// Superficie de revolución a partir de una función radio(y)
+function lathe(fnR, y0, y1, n=18){ const pts = [new V2(0,y0)]; for (let i=0;i<=n;i++){ const y = y0+(y1-y0)*i/n; pts.push(new V2(Math.max(0.03, fnR(y)), y)); } pts.push(new V2(0,y1)); return new THREE.LatheGeometry(pts, 36); }
+// Líquido entre dos alturas dentro de un recipiente (se reconstruye solo si cambia)
+function liquid(parent, pos, fnR, mat, order=1){
+  const L = { a:-1, b:-1 }; L.mesh = mk(new THREE.BufferGeometry(), mat, parent, { pos, outline:false, shadow:false, order, noGhost:true }); L.mesh.visible = false;
+  L.set = (na, nb) => { if (Math.abs(na-L.a) < 0.015 && Math.abs(nb-L.b) < 0.015) return; L.a = na; L.b = nb;
+    L.mesh.visible = nb - na > 0.03; if (L.mesh.visible){ L.mesh.geometry.dispose(); L.mesh.geometry = lathe(fnR, na, nb); } };
+  return L; }
+const sphR = (R, inset) => y => Math.sqrt(Math.max(0, R*R - (y-R)*(y-R))) - inset;
+function roundFlask(R, neckR, neckTop){ const pts = [], yJ = R + Math.sqrt(R*R - neckR*neckR), aTop = Math.asin((yJ-R)/R);
+  for (let i=0;i<=24;i++){ const a = -Math.PI/2 + (aTop + Math.PI/2)*i/24; pts.push(new V2(Math.max(0.001, R*Math.cos(a)), R + R*Math.sin(a))); }
+  pts.push(new V2(neckR, neckTop), new V2(neckR+0.25, neckTop+0.1), new V2(neckR+0.25, neckTop+0.5), new V2(neckR, neckTop+0.55)); return new THREE.LatheGeometry(pts, 44); }
+
+/* ---- Materiales del equipo ---- */
+const M = {
+  iron: toon(0x2C3A48), steel: toon(0xBAC4CC), clamp: toon(0x34495E), jaw: toon(0xC94A3E), knob: toon(0x1C2630), hose: toon(0xC98A4B),
+  mantle: toon(0x3A4652), mantleTop: toon(0x56636F), stone: toon(0xD9D4CC),
+  paper: toon(0xEFE4CC, { side:THREE.DoubleSide }), cotton: toon(0xFAFAF7), sample: toon(0xC9A26B),
+  flaskLiq: toon(0xE8F2F5, { transparent:true, opacity:0.82, side:THREE.DoubleSide }),
+  chamberLiq: toon(0xE8F2F5, { transparent:true, opacity:0.8, side:THREE.DoubleSide }),
+  jacketWater: toon(0x8CC8DE, { transparent:true, opacity:0.55 }),
+};
+
+/* ====================== 4) Construcción de piezas (en coordenadas de mundo) ====================== */
+const parts = {};
+function newPart(key){ const g = new THREE.Group(); g.userData.key = key; scene.add(g); parts[key] = { group:g, anchors:[], placed:true }; return g; }
+// Las piezas se dibujan en coordenadas de mundo; al final el origen del grupo pasa a su punto "home".
+function finalize(key){ const g = parts[key].group, h = new V3(...EQUIPO.home[key]); g.children.forEach(c => c.position.sub(h)); g.position.copy(h); }
+function clampTo(g, part, rod, target, jawR, axis){
+  const [rx,ry,rz] = rod, [tx,ty,tz] = target;
+  mk(box(2.6,2.6,2.6,0.4), M.clamp, g, { pos:[rx,ry,rz], part });
+  mk(new THREE.CylinderGeometry(0.7,0.7,0.7,14), M.knob, g, { pos:[rx+2,ry,rz], rot:[0,0,Math.PI/2], part });
+  mk(box(0.9,0.9,Math.abs(tz-rz)-jawR,0.2), M.clamp, g, { pos:[tx,ty,(rz+tz-jawR)/2], part });
+  const jaw = mk(new THREE.TorusGeometry(jawR+0.35, 0.3, 8, 26, Math.PI*1.5), M.jaw, g, { pos:[tx,ty,tz], part });
+  jaw.quaternion.setFromUnitVectors(Z, axis.clone().normalize()); jaw.rotateZ(-Math.PI*0.25);
+}
+
+// Alturas clave del extractor (cm; 1 unidad = 1 cm)
+const CH_BOT = 18.7, APEX = 27.4, VSIF = 100;                 // fondo de la cámara, curva del sifón, volumen hasta la curva
+const AREA = VSIF/(APEX - CH_BOT);                             // mL por cm de altura (cámara menos cartucho)
+const CARGA = { bien:{ top:26.2, s:25.0, algodon:true }, alto:{ top:30.2, s:29.0, algodon:true }, sinAlgodon:{ top:26.2, s:25.0, algodon:false } };
+
+// Pinza en diagonal: une la varilla (atrás a la derecha) con la pieza de vidrio
+function clampDiag(g, part, rod, target, jawR){
+  const R = new V3(...rod), T = new V3(...target), d = T.clone().sub(R); d.y = 0; const L = d.length(); d.normalize();
+  const ang = Math.atan2(d.x, d.z), bl = L - jawR;
+  mk(box(2.6,2.6,2.6,0.4), M.clamp, g, { pos:rod, part, rot:[0,ang,0] });
+  mk(new THREE.CylinderGeometry(0.7,0.7,0.7,14), M.knob, g, { pos:[R.x + d.z*2, R.y, R.z - d.x*2], rot:[0,ang,Math.PI/2], part });
+  mk(box(0.9,0.9,bl,0.2), M.clamp, g, { pos:R.clone().addScaledVector(d, bl/2).toArray(), rot:[0,ang,0], part });
+  mk(new THREE.TorusGeometry(jawR+0.35,0.3,8,26,Math.PI*1.5), M.jaw, g, { pos:target, rot:[Math.PI/2,0,Math.atan2(d.z,d.x) - 1.75*Math.PI], part });
+}
+// --- Soporte y pinzas (varilla atrás a la derecha, para no tapar el vidrio)
+{ const g = newPart('soporte');
+  mk(box(22,1.2,22,0.4), M.iron, g, { pos:[4,0.6,-3], part:'soporte' });
+  segment([8,1.2,-8],[8,64,-8], 0.6, M.steel, g, { part:'soporte' });
+  clampDiag(g, 'soporte', [8,14.9,-8], [0,14.9,0], 1.25);
+  clampDiag(g, 'soporte', [8,44,-8], [0,44,0], 2.25);
+  collider(new THREE.CylinderGeometry(1.8,1.8,62,8), g, [8,33,-8], 'soporte');
+  anchor('soporte','soporte',[8,58,-8]);
+  finalize('soporte'); }
+
+// --- Manta calefactora con perilla
+const mantle = {};
+{ const g = newPart('manta');
+  mk(new THREE.CylinderGeometry(6.6,6.2,7.5,36), M.mantle, g, { pos:[0,4.95,0], part:'manta' });
+  mk(new THREE.TorusGeometry(5.9,0.6,10,36), M.mantleTop, g, { pos:[0,8.7,0], rot:[Math.PI/2,0,0], part:'manta' });
+  mantle.glow = new THREE.MeshBasicMaterial({ color:0x3A2A22 });
+  mk(new THREE.CircleGeometry(5.4,36), mantle.glow, g, { pos:[0,8.72,0], rot:[-Math.PI/2,0,0], outline:false, shadow:false, noGhost:true });
+  mk(box(5.6,3.2,1,0.3), toon(0x2B3540), g, { pos:[0,4.6,6.1], part:'manta', ctrl:'manta' });
+  mantle.knob = mk(new THREE.CylinderGeometry(0.9,1.0,1.0,20), M.knob, g, { pos:[-1.2,4.6,6.9], rot:[Math.PI/2,0,0], part:'manta', ctrl:'manta' });
+  mk(box(0.22,0.12,0.7,0.05), toon(0xF8F8F3), mantle.knob, { pos:[0,0.52,-0.35], outline:false, shadow:false });
+  mantle.led = new THREE.MeshBasicMaterial({ color:0x55606a });
+  mk(new THREE.SphereGeometry(0.3,10,8), mantle.led, g, { pos:[1.5,4.6,6.75], outline:false, shadow:false });
+  collider(new THREE.BoxGeometry(6,3.6,2.4), g, [0,4.6,6.6], 'manta', { ctrl:'manta' });
+  anchor('manta','manta',[6.4,4,1]);
+  finalize('manta'); }
+
+// --- Balón con hexano + piedras de ebullición
+const flask = { stones:[] };
+{ const g = newPart('balon');
+  flask.liq = liquid(g, [0,4.2,0], sphR(5,0.15), M.flaskLiq);
+  mk(roundFlask(5,1.2,11.4), glassMat(), g, { pos:[0,4.2,0], outline:false, shadow:false, order:3, part:'balon' });
+  for (const [x,z] of [[-1.1,0.6],[0.9,1.0],[0.2,-1.2],[1.5,-0.3]])
+    flask.stones.push(mk(new THREE.IcosahedronGeometry(0.34,0), M.stone, g, { pos:[x,4.75,z], rot:[x,z,0], part:'balon', sub:'piedras', order:2 }));
+  collider(new THREE.SphereGeometry(5.2,12,10), g, [0,9.2,0], 'balon');
+  collider(new THREE.BoxGeometry(4,1.6,4), g, [0,4.9,0], 'balon', { sub:'piedras' });
+  anchor('balon','balon',[-5.1,10.5,0]);
+  anchor('balon','piedras',[1.6,4.9,1.4]);
+  finalize('balon'); }
+
+// --- Extractor Soxhlet: cámara, brazo lateral de vapor y sifón
+const ext = {};
+{ const g = newPart('extractor'), glass = () => glassMat();
+  mk(new THREE.LatheGeometry([[0.95,14.6],[0.95,17.4],[2.3,18.5],[2.3,31.0],[1.4,32.0],[1.4,33.0],[1.6,33.2]].map(p => new V2(...p)), 44),
+     glass(), g, { outline:false, shadow:false, order:3, part:'extractor' });
+  const arm = tube([[0.6,15.6,0],[2.0,16.1,0],[3.4,17.0,0],[3.5,18.5,0],[3.5,29.6,0],[3.1,30.6,0],[2.2,31.0,0]], 0.45, glass(), g,
+     { outline:false, shadow:false, order:3, part:'extractor', sub:'brazo' });
+  const sif = tube([[-1.9,18.75,0],[-2.8,18.9,0],[-3.15,19.6,0],[-3.15,26.8,0],[-3.35,27.6,0],[-3.8,27.85,0],[-4.25,27.6,0],[-4.45,26.8,0],[-4.45,17.6,0],[-4.0,16.4,0],[-2.5,15.9,0],[-0.9,15.6,0]],
+     0.28, glass(), g, { outline:false, shadow:false, order:3, part:'extractor', sub:'sifon', tseg:160 });
+  ext.armCurve = arm.userData.curve; ext.sifCurve = sif.userData.curve;
+  ext.liq = liquid(g, [0,0,0], () => 2.12, M.chamberLiq);                 // líquido de la cámara, alrededor del cartucho
+  const ag = new THREE.CylinderGeometry(0.17,0.17,1,8); ag.translate(0,0.5,0);
+  ext.armLiq = mk(ag, M.chamberLiq, g, { pos:[-3.15,18.95,0], outline:false, shadow:false, order:2, noGhost:true });   // líquido en la rama ascendente del sifón
+  ext.armLiq.visible = false;
+  collider(new THREE.CylinderGeometry(2.7,2.7,15,10), g, [0,25,0], 'extractor');
+  collider(new THREE.BoxGeometry(1.8,12,1.8), g, [3.5,24,0], 'extractor', { sub:'brazo' });
+  collider(new THREE.BoxGeometry(2.4,10,1.8), g, [-3.8,22.5,0], 'extractor', { sub:'sifon' });
+  anchor('extractor','extractor',[2.3,31.5,0]);
+  anchor('extractor','brazo',[3.5,21,0]);
+  anchor('extractor','sifon',[-4.45,23,0]);
+  finalize('extractor'); }
+
+// --- Cartucho de celulosa con muestra y algodón (la altura cambia según la carga elegida)
+const cart = {};
+{ const g = newPart('cartucho');
+  const tg = new THREE.CylinderGeometry(1.55,1.55,1,28,1,true); tg.translate(0,0.5,0);
+  cart.paper = mk(tg, M.paper, g, { pos:[0,18.8,0], part:'cartucho', order:2 });
+  mk(new THREE.CircleGeometry(1.55,28), M.paper, g, { pos:[0,18.82,0], rot:[-Math.PI/2,0,0], part:'cartucho', outline:false });
+  const sg = new THREE.CylinderGeometry(1.45,1.45,1,28); sg.translate(0,0.5,0);
+  cart.sample = mk(sg, M.sample, g, { pos:[0,18.9,0], part:'cartucho', outline:false, order:1 });
+  cart.cotton = mk(new THREE.CylinderGeometry(1.45,1.3,0.7,24), M.cotton, g, { pos:[0,25.35,0], part:'cartucho', order:2 });
+  collider(new THREE.CylinderGeometry(1.9,1.9,8.5,10), g, [0,23,0], 'cartucho');
+  anchor('cartucho','cartucho',[-1.6,22,0]);
+  finalize('cartucho');
+  cart.set = c => { const k = CARGA[c]; cart.paper.scale.y = k.top - 18.8; cart.sample.scale.y = k.s - 18.9;
+    cart.cotton.position.y = k.s + 0.35 - 18.8; cart.cotton.visible = k.algodon; };
+  cart.set('bien'); }
+
+// --- Refrigerante de bolas (Allihn)
+const cond = {};
+{ const g = newPart('condensador'), glass = () => glassMat();
+  const pts = []; for (let i = 0; i <= 120; i++){ const y = 32.6 + i*(55.2 - 32.6)/120; let r = 0.62;
+    if (y > 35.5 && y < 51.5){ const f = ((y - 35.5)/3.2) % 1; r = 0.62 + 0.75*Math.sin(Math.PI*f); } pts.push(new V2(r, y)); }
+  pts.push(new V2(0.85, 55.3));
+  mk(new THREE.LatheGeometry(pts, 32), glass(), g, { outline:false, shadow:false, order:3, part:'condensador' });
+  mk(new THREE.LatheGeometry([[0.7,35.0],[2.2,36.2],[2.2,50.8],[0.7,52.0]].map(p => new V2(...p)), 40), glass(), g, { outline:false, shadow:false, order:3, part:'condensador' });
+  const jw = new THREE.CylinderGeometry(2.0,2.0,1,28); jw.translate(0,0.5,0);
+  cond.water = mk(jw, M.jacketWater, g, { pos:[0,36.2,0], outline:false, shadow:false, order:2, noGhost:true }); cond.water.scale.y = 0.001;
+  for (const y of [37, 50]) segment([2.1,y,0],[4.2,y+0.4,0], 0.32, glass(), g, { outline:false, shadow:false, order:3, part:'condensador' });
+  collider(new THREE.CylinderGeometry(2.6,2.6,22,10), g, [0,44,0], 'condensador');
+  anchor('condensador','condensador',[2.3,47,0]);
+  finalize('condensador'); }
+
+// --- Bomba de recirculación y mangueras (entrada abajo, salida arriba: contracorriente)
+const pump = {};
+{ const g = newPart('mangueras');
+  mk(box(11,7,8,0.6), toon(0xDDE4E8), g, { pos:[24,3.5,-10], part:'mangueras', ctrl:'pump' });
+  mk(box(9,4,0.3,0.1), toon(0x8CC8DE), g, { pos:[24,3,-5.9], part:'mangueras', ctrl:'pump', outline:false });
+  mk(box(4,2.4,3,0.4), toon(0x2E3A46), g, { pos:[22,8.2,-10], part:'mangueras', ctrl:'pump' });
+  pump.led = new THREE.MeshBasicMaterial({ color:0x55606a });
+  mk(new THREE.SphereGeometry(0.35,10,8), pump.led, g, { pos:[22,8.4,-8.4], outline:false, shadow:false });
+  const hin = tube([[22.6,9.4,-10],[18,18,-8],[9,30,-3],[5.6,36.8,-0.6],[4.2,37.4,0]], 0.45, M.hose, g, { part:'mangueras' });
+  const hout = tube([[4.2,50.4,0],[6,51,-0.8],[12,44,-6],[19,26,-10],[23,12,-11],[25.5,7.2,-10.5]], 0.45, M.hose, g, { part:'mangueras' });
+  pump.curves = [hin.userData.curve, hout.userData.curve];
+  collider(new THREE.BoxGeometry(12,10,9), g, [24,4.5,-10], 'mangueras', { ctrl:'pump' });
+  anchor('mangueras','mangueras',[29,6,-10]);
+  finalize('mangueras'); }
+
+/* ====================== 5) Overlay: hotspots con anti-solape ====================== */
+const overlay = $('#overlay');
+const keyOf = o => (o.userData.sub && EQUIPO.partes[o.userData.sub]) ? o.userData.sub : o.userData.part;
+const hostOf = k => EQUIPO.partes[k]?.sub || k;
+const hotspots = [];
+for (const key of EQUIPO.orden){
+  const a = parts[hostOf(key)].anchors.find(x => x.userData.name === key), p = EQUIPO.partes[key];
+  const dot = document.createElement('button'); dot.className = 'dot'; dot.setAttribute('aria-label', p.nombre);
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = p.tag || p.nombre;
+  for (const el of [dot, tag]){ el.addEventListener('click', () => select(key)); overlay.appendChild(el); }
+  hotspots.push({ key, a, dot, tag, sx:0, sy:0, ty:0, tw:0 });
+}
+const tmp = new V3();
+function project(obj){ obj.getWorldPosition(tmp).project(camera); const r = stage.getBoundingClientRect(); return [ (tmp.x*0.5+0.5)*r.width, (-tmp.y*0.5+0.5)*r.height, tmp.z ]; }
+
+/* ====================== 6) Picking y cámara animada ====================== */
+const raycaster = new THREE.Raycaster(); const ndc = new V2();
+function pick(ev, list=pickables){ const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1); raycaster.setFromCamera(ndc, camera);
+  return raycaster.intersectObjects(list, false)[0] || null; }
+let tween = null;
+function flyTo({ target=controls.target.clone(), zoom=camera.zoom, theta=null, phi=null }, dur=900){
+  const s = new THREE.Spherical().setFromVector3(new V3().subVectors(camera.position, controls.target));
+  let th = theta ?? s.theta; while (th - s.theta > Math.PI) th -= 2*Math.PI; while (th - s.theta < -Math.PI) th += 2*Math.PI;
+  tween = { t:0, dur: reduceMotion ? 1 : dur, from:{ target:controls.target.clone(), zoom:camera.zoom, theta:s.theta, phi:s.phi }, to:{ target, zoom, theta:th, phi: phi ?? s.phi } }; }
+function stepTween(dt){ if (!tween) return; tween.t = Math.min(1, tween.t + dt*1000/tween.dur);
+  const k = 1 - Math.pow(1 - tween.t, 3), f = tween.from, t = tween.to;
+  controls.target.lerpVectors(f.target, t.target, k); camera.zoom = f.zoom + (t.zoom - f.zoom)*k; camera.updateProjectionMatrix();
+  camera.position.copy(controls.target).add(new V3().setFromSpherical(new THREE.Spherical(300, f.phi + (t.phi - f.phi)*k, f.theta + (t.theta - f.theta)*k)));
+  if (tween.t >= 1) tween = null; }
+function focusPart(key){
+  if (EQUIPO.partes[key].sub){ const a = parts[hostOf(key)].anchors.find(x => x.userData.name === key); return flyTo({ target:a.getWorldPosition(new V3()), zoom:3.4 }); }
+  const b = new THREE.Box3().setFromObject(parts[key].group), c = b.getCenter(new V3()), size = b.getSize(new V3());
+  flyTo({ target:c, zoom: Math.min(5, Math.max(1.1, VIEW/(Math.max(size.y, Math.max(size.x,size.z)*0.9)*1.4))) }); }
+const accentColor = new THREE.Color();
+function setHighlight(key, on, strength=0.22){
+  if (!key || !EQUIPO.partes[key]) return; const isSub = !!EQUIPO.partes[key].sub;
+  parts[hostOf(key)].group.traverse(o => { if (!o.isMesh || o.userData.outline || o.userData.noGhost) return;
+    if (isSub && o.userData.sub !== key) return;
+    if (o.material.isMeshToonMaterial) o.material.emissive.copy(accentColor).multiplyScalar(on ? strength : 0);
+    else if (o.material.uniforms?.hi) o.material.uniforms.hi.value = on ? strength*2.2 : 0; }); }
+
+/* ====================== 7) Modos ====================== */
+let mode = null, selected = null, hovered = null, labelsOn = true;
+const panel = $('#panel'); const toastEl = $('#toast'); let toastTimer;
+function toast(msg, kind=''){ toastEl.textContent = msg; toastEl.className = 'toast ' + kind; toastEl.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.hidden = true, 3600); }
+function select(key){ if (mode !== MODES.explorar) return; if (selected) setHighlight(selected, false);
+  selected = key; setHighlight(key, true); const p = EQUIPO.partes[key];
+  $('#popTitle').textContent = p.nombre; $('#popText').textContent = p.corto; $('#popup').hidden = false; renderExplorePanel(); }
+function deselect(){ if (selected) setHighlight(selected,false); selected = null; $('#popup').hidden = true; $('#leader').setAttribute('d',''); if (mode === MODES.explorar) renderExplorePanel(); }
+$('#popClose').onclick = deselect; $('#popZoom').onclick = () => selected && focusPart(selected);
+
+function renderExplorePanel(){
+  const chips = EQUIPO.orden.map(k => `<button class="chip" data-k="${k}" aria-pressed="${k===selected}">${EQUIPO.partes[k].tag || EQUIPO.partes[k].nombre}</button>`).join('');
+  if (!selected){
+    panel.innerHTML = `<div class="block"><h4>Modo explorar</h4><h2>Conoce cada pieza</h2></div>
+      <p class="lead">El hexano hierve abajo, sube por el brazo lateral, se condensa arriba y gotea sobre la muestra. El sifón devuelve el extracto al balón. Toca un punto para ver qué hace cada pieza y su error típico.</p>
+      <div class="block"><h4>Piezas del montaje · ${EQUIPO.orden.length}</h4><div class="chips">${chips}</div></div>`;
+  } else { const p = EQUIPO.partes[selected];
+    panel.innerHTML = `<div class="block"><h4>Pieza seleccionada</h4><h2>${p.nombre}</h2></div><div class="spec">${p.dato}</div>
+      <div class="block"><h4>Para qué sirve</h4><p>${p.funcion}</p></div><div class="block"><h4>Cómo se usa</h4><p>${p.uso}</p></div>
+      <div class="block err"><h4>Error común</h4><p>${p.error}</p></div><div class="block"><h4>Otras piezas</h4><div class="chips">${chips}</div></div>`; }
+  panel.querySelectorAll('.chip').forEach(b => b.onclick = () => { select(b.dataset.k); focusPart(b.dataset.k); });
+}
+
+const MODES = {
+  explorar: {
+    view(){ return HOME_VIEW; },
+    enter(){ assembleAll(); overlay.hidden = false; $('#hint').innerHTML = 'Arrastra para girar · rueda para zoom<br>toca un punto para ver la pieza'; renderExplorePanel(); flyTo(this.view()); },
+    exit(){ deselect(); overlay.hidden = true; },
+    click(hit){ if (hit) select(keyOf(hit.object)); else deselect(); },
+    update(){
+      const r = stage.getBoundingClientRect(), W = r.width;
+      for (const h of hotspots){ const [x,y,z] = project(h.a); h.sx = x; h.sy = y; h.vis = !(z>1 || x<-40 || x>W+40 || y<-20 || y>r.height+20);
+        if (!h.tw && h.vis && labelsOn) h.tw = h.tag.offsetWidth; h.side = x < W*0.5 ? 'left' : 'right'; }
+      // Etiquetas hacia afuera del montaje, apiladas por altura sin solaparse y sin salirse del lienzo
+      for (const side of ['left','right']){ let last = -1e9;
+        for (const h of hotspots.filter(h => h.side === side && h.vis).sort((a,b) => a.sy - b.sy)){ h.ty = Math.max(h.sy, last + 30); last = h.ty; } }
+      let ties = '';
+      for (const h of hotspots){ const L = h.side === 'left';
+        h.dot.style.display = h.tag.style.display = h.vis ? '' : 'none'; if (!h.vis) continue;
+        const gx = L ? Math.max(h.sx - 30, (h.tw||120) + 10) : Math.min(h.sx + 30, W - (h.tw||120) - 10);
+        h.dot.style.transform = `translate(${h.sx-9}px,${h.sy-9}px)`;
+        h.tag.style.transform = `translate(${gx}px,${h.ty}px) translate(${L?'-100%':'0'},-50%)`;
+        h.dot.classList.toggle('sel', h.key === selected); h.tag.classList.toggle('sel', h.key === selected);
+        ties += `M${h.sx + (L?-9:9)} ${h.sy} L${gx + (L?2:-2)} ${h.ty}`; }
+      $('#ties').setAttribute('d', ties);
+      if (selected){ const h = hotspots.find(h => h.key === selected), pr = $('#popup').getBoundingClientRect();
+        const sx = pr.left - r.left + 28, sy = pr.bottom - r.top; $('#leader').setAttribute('d', `M${sx} ${sy} L${sx} ${sy+24} L${h.sx} ${h.sy}`); }
+    }
+  },
+  ensamblar: {
+    view(){ const a = stage.clientWidth/stage.clientHeight; return { target:new V3(0,14,6), zoom: Math.min(0.74, a*0.56), theta:0.55 }; },
+    enter(){ overlay.hidden = true; scatterAll(); $('#hint').innerHTML = 'Cámara fija en este modo<br>arrastra cada pieza a su silueta';
+      controls.enabled = false; stage.classList.add('locked'); renderAssemblePanel(); flyTo(this.view()); },
+    exit(){ drag = null; for (const k in ghosts) ghosts[k].visible = false; controls.enabled = true; stage.classList.remove('locked'); },
+    update(){ const t = performance.now()/1000;
+      for (const k in ghosts){ const g = ghosts[k]; g.visible = !parts[k].placed && depsOk(k);
+        g.userData.mat.opacity = (drag?.k === k && drag.inside) ? 0.5 : 0.2 + 0.1*Math.sin(t*3); } }
+  },
+  operar: {
+    view(){ return { target:new V3(3,29,0), zoom:1.45, theta:0.6 }; },
+    enter(){ overlay.hidden = true; assembleAll(); $('#hint').innerHTML = 'Toca la bomba o la perilla de la manta<br>en el modelo, o usa el panel';
+      resetOperate(); flyTo(this.view()); },
+    exit(){ resetOperate(false); },
+    click(hit){ if (!hit) return; const c = hit.object.userData.ctrl;
+      if (c === 'pump') setPump(!op.pump); else if (c === 'manta') setManta((op.manta + 1) % 3); },
+    update(dt){ updateOperate(dt); }
+  },
+};
+
+/* ---- Ensamblaje (mismo motor que titulación) ---- */
+const ASSEMBLY = EQUIPO.ensamble;
+const depsOk = k => (EQUIPO.partes[k].requiere || []).every(d => parts[d].placed);
+const ghosts = {}, SNAP = {}, FLOOR = {};
+for (const k of ASSEMBLY){
+  const b = new THREE.Box3().setFromObject(parts[k].group), size = b.getSize(new V3());
+  FLOOR[k] = b.min.y; SNAP[k] = Math.max(6, Math.max(size.x, size.z)*0.28);
+  const mat = new THREE.MeshBasicMaterial({ color:0x15212c, transparent:true, opacity:0.2, depthWrite:false });
+  const gh = parts[k].group.clone(true);
+  gh.traverse(o => { if (o.isMesh){ o.material = (o.userData.outline || o.userData.noGhost || o.material === colliderMat) ? colliderMat : mat; o.castShadow = false; o.raycast = ()=>{}; } });
+  gh.userData.mat = mat; gh.visible = false; scene.add(gh); ghosts[k] = gh;
+}
+function scatterAll(){ for (const k of ASSEMBLY){ const [dx,dz] = EQUIPO.scatter[k], h = EQUIPO.home[k], g = parts[k].group;
+  parts[k].placed = false; g.position.set(h[0]+dx, h[1]-FLOOR[k], h[2]+dz); parts[k].rest = g.position.clone(); } }
+function assembleAll(){ anims.length = 0; for (const k of ASSEMBLY){ parts[k].group.position.set(...EQUIPO.home[k]); parts[k].placed = true; } }
+function renderAssemblePanel(){
+  const done = ASSEMBLY.filter(k => parts[k].placed).length;
+  const items = ASSEMBLY.map((k,i) => { const st = parts[k].placed ? 'done' : depsOk(k) ? 'next' : 'locked';
+    const req = EQUIPO.partes[k].requiere.map(r => EQUIPO.partes[r].tag || EQUIPO.partes[r].nombre).join(', ');
+    return `<li class="${st}"><span class="st">${parts[k].placed ? '✓' : i+1}</span><div><b>${EQUIPO.partes[k].tag || EQUIPO.partes[k].nombre}</b>
+      <small>${parts[k].placed ? 'Colocada.' : st === 'next' ? EQUIPO.pistas[k] : 'Antes: ' + req}</small></div></li>`; }).join('');
+  panel.innerHTML = `<div class="block"><h4>Modo ensamblar · ${done}/${ASSEMBLY.length}</h4><h2>${done === ASSEMBLY.length ? 'Montaje completo' : 'Arma el montaje'}</h2></div>
+    <div class="progress" aria-hidden="true"><i style="width:${done/ASSEMBLY.length*100}%"></i></div>
+    <p class="lead">${done === ASSEMBLY.length ? 'Todo en su sitio. Comprueba que el agua entra por la boquilla de abajo del refrigerante y pasa a Operar.' : 'Arrastra cada pieza hasta su silueta. Si la sueltas en otro sitio, vuelve a su lugar.'}</p>
+    <ol class="steps">${items}</ol><button class="btn" id="reAsm">Desarmar de nuevo</button>
+    ${done === ASSEMBLY.length ? '<button class="btn primary" id="goOp">Ir a Operar</button>' : ''}`;
+  $('#reAsm').onclick = () => { scatterAll(); renderAssemblePanel(); };
+  const go = $('#goOp'); if (go) go.onclick = () => setMode('operar');
+}
+let drag = null; const dragPlane = new THREE.Plane(new V3(0,1,0), 0); const hitP = new V3();
+const carryY = k => EQUIPO.home[k][1] + (EQUIPO.lift?.[k] ?? 3);
+const looseList = () => pickables.filter(m => { let g = m; while (g && !g.userData.key) g = g.parent; return g && !parts[g.userData.key].placed; });
+function startDrag(ev){ const hit = pick(ev, looseList()); if (!hit) return false;
+  let g = hit.object; while (!g.userData.key) g = g.parent; const k = g.userData.key;
+  dragPlane.constant = -carryY(k); drag = { k }; moveDrag(ev);
+  setHighlight(k, true, 0.18); renderer.domElement.style.cursor = 'grabbing'; return true; }
+const nearHome = k => { const g = parts[k].group, h = EQUIPO.home[k]; return Math.hypot(g.position.x - h[0], g.position.z - h[2]) < SNAP[k]; };
+function moveDrag(ev){ pick(ev, []); if (!raycaster.ray.intersectPlane(dragPlane, hitP)) return;
+  parts[drag.k].group.position.set(hitP.x, carryY(drag.k), hitP.z);
+  const inside = nearHome(drag.k); ghosts[drag.k].userData.mat.color.copy(inside ? accentColor : new THREE.Color(0x15212c)); drag.inside = inside; }
+function endDrag(){ const k = drag.k, g = parts[k].group; setHighlight(k,false); drag = null; renderer.domElement.style.cursor = '';
+  ghosts[k].userData.mat.color.set(0x15212c);
+  if (nearHome(k) && depsOk(k)){ animateTo(g, new V3(...EQUIPO.home[k]), () => { parts[k].placed = true; renderAssemblePanel();
+      const n = ASSEMBLY.filter(x => parts[x].placed).length; toast(n === ASSEMBLY.length ? 'Montaje completo. Bien hecho.' : (EQUIPO.partes[k].tag || EQUIPO.partes[k].nombre) + ' en su sitio.', 'ok'); }); return; }
+  if (nearHome(k)){ const falta = EQUIPO.partes[k].requiere.filter(r => !parts[r].placed).map(r => (EQUIPO.partes[r].tag || EQUIPO.partes[r].nombre).toLowerCase());
+    toast(`Aún no: primero coloca ${falta.join(' y ')}.`, 'warn'); }
+  else toast(`Ese no es su sitio. ${EQUIPO.pistas[k]}`, 'warn');
+  animateTo(g, parts[k].rest.clone()); }
+const anims = [];
+function animateTo(g, pos, done){ anims.push({ g, p0:g.position.clone(), p1:pos, t:0, done }); }
+function stepAnims(dt){ for (let i = anims.length-1; i >= 0; i--){ const a = anims[i]; a.t = Math.min(1, a.t + dt*(reduceMotion ? 100 : 2.4)); const k = 1 - Math.pow(1 - a.t, 3);
+  a.g.position.lerpVectors(a.p0, a.p1, k); if (a.t >= 1){ anims.splice(i,1); a.done?.(); } } }
+
+/* ====================== 8) Operación ======================
+   · Hexano: punto de ebullición con la ecuación de Antoine según el lugar (Lima o Huancayo).
+   · Volúmenes reales: cámara de ~100 mL hasta la curva del sifón; el sifón descarga cuando el nivel la alcanza.
+   · Extracción: mientras el disolvente cubre la muestra, la grasa pasa a la cámara (cinética de primer orden);
+     cada descarga del sifón la lleva al balón, donde se acumula porque no se evapora.
+   · Al final: gravimetría (balón con grasa − tara) / masa de muestra.
+   Simplificado: caudal de vapor y constantes de extracción elegidas para que un ciclo dure minutos, como en el laboratorio. */
+const MUESTRAS = {
+  mani:   { nombre:'Maní', grasa:49, sample:0xC9A26B, ext:0xE6C65A },
+  sacha:  { nombre:'Sacha inchi', grasa:45, sample:0x6A4632, ext:0xD9B64A },
+  quinua: { nombre:'Quinua', grasa:6, sample:0xE8D9A8, ext:0xEDE3A8 },
+};
+const LUGARES = { lima:{ nombre:'Lima (nivel del mar)', P:760 }, huancayo:{ nombre:'Huancayo (3250 m)', P:Math.round(760*Math.exp(-3250/8434)) } };
+const HEX = { A:6.87601, B:1171.17, C:224.41 };                      // Antoine del n-hexano (mmHg, °C)
+const tHex = P => HEX.B/(HEX.A - Math.log10(P)) - HEX.C;
+const M_MUESTRA = 5.0000, KC = 0.0012, KP = 0.00004;                 // g de muestra; 1/s sumergida y por goteo
+const fmt = (x, d=1) => x.toFixed(d).replace('.', ',');
+const capH = (V, R) => { let a = 0, b = 2*R; for (let i = 0; i < 30; i++){ const h = (a+b)/2; (Math.PI*h*h*(3*R-h)/3 > V) ? b = h : a = h; } return a; };
+const clamp01 = x => Math.max(0, Math.min(1, x));
+
+const op = { muestra:'mani', carga:'bien', vol:175, piedras:true, lugar:'lima', vel:10 };
+function resetOperate(render=true){
+  const mu = MUESTRAS[op.muestra], k = CARGA[op.carga], fat = M_MUESTRA*mu.grasa/100;
+  const altoFrac = Math.max(0, (k.s - APEX)/(k.s - 18.9));          // fracción de muestra por encima de la curva del sifón
+  Object.assign(op, { pump:false, manta:0, T:0, Vb:op.vol, Vch:0, sif:false, ciclos:0, t:0, lost:0,
+    fatLow:fat*(1 - altoFrac), fatHigh:fat*altoFrac, fatTot:fat, fatCh:0, fatB:0, solids:0, Tb:tHex(LUGARES[op.lugar].P),
+    jf:0, everOn:false, dry:false, bumpT:2, bump:0, done:false, res:null, tara: Math.round((104 + Math.random()*10)*10000)/10000 });
+  M.sample.color.set(mu.sample); cart.set(op.carga); flask.stones.forEach(s => s.visible = op.piedras);
+  particles.forEach(p => kill(p)); cond.water.scale.y = 0.001; mantle.knob.rotation.y = 0;
+  syncLiquids(); if (render && mode === MODES.operar) renderOperatePanel();
+}
+function setPump(v){ op.pump = v; renderOperatePanel(); }
+function setManta(v){ if (op.done) return;
+  if (v > 0 && !op.pump) toast('Primero el agua del refrigerante y después el calor.', 'warn');
+  op.manta = v; if (v > 0) op.everOn = true; renderOperatePanel(); }
+function setPiedras(v){ if (v && op.T > 0.35){ toast('Nunca agregues piedras a un líquido caliente: puede hervir de golpe. Apaga y deja enfriar.', 'warn'); return; }
+  op.piedras = v; flask.stones.forEach(s => s.visible = v); renderOperatePanel(); }
+const level = () => CH_BOT + op.Vch/AREA;
+const tSolv = () => op.dry && op.manta > 0 ? op.Tb + 30*Math.min(1, op.T - 1) : 20 + (op.Tb - 20)*Math.min(1, op.T);
+function canFinish(){ return !op.done && op.manta === 0 && op.T < 0.4 && op.ciclos >= 1 && !op.sif; }
+function finish(){
+  const mu = MUESTRAS[op.muestra], m = op.fatB + op.solids, noise = (Math.random() - 0.5)*0.0004;
+  op.res = { tara:op.tara, bruto:Math.round((op.tara + m + noise)*10000)/10000 };
+  op.res.grasa = op.res.bruto - op.tara; op.res.pct = op.res.grasa/M_MUESTRA*100; op.res.ref = mu.grasa;
+  op.res.queda = op.fatLow + op.fatHigh; op.res.camara = op.fatCh; op.done = true; renderOperatePanel();
+}
+function lookAtSiphon(){ flyTo({ target:new V3(-1, 23, 0), zoom:3.6, theta:0.25, phi:1.45 }, 900); }
+
+function syncLiquids(){
+  flask.liq.set(0.15, 0.15 + capH(Math.max(0, op.Vb), 4.85));
+  const L = level(); ext.liq.set(CH_BOT, op.Vch > 0.05 ? L : CH_BOT);
+  const armTop = op.sif ? APEX : L; ext.armLiq.visible = armTop > 19.05; ext.armLiq.scale.y = Math.max(0.01, armTop - 18.95);
+  const mu = MUESTRAS[op.muestra], cB = op.Vb > 1 ? op.fatB/op.Vb : 0, cC = op.Vch > 1 ? op.fatCh/op.Vch : 0;
+  M.flaskLiq.color.set(0xE8F2F5).lerp(new THREE.Color(mu.ext), clamp01(cB*28));        // g/mL → color (amarillo con la grasa)
+  M.chamberLiq.color.set(0xE8F2F5).lerp(new THREE.Color(mu.ext), clamp01(cC*90));
+}
+
+// --- Partículas
+const particles = [];
+function pool(n, geo, mat, order=5){ const arr = []; for (let i=0;i<n;i++){ const m = new THREE.Mesh(geo, mat); m.visible = false; m.renderOrder = order; scene.add(m); const p = { m, on:false }; arr.push(p); particles.push(p); } return arr; }
+function spawn(arr, init){ const p = arr.find(p => !p.on); if (!p) return null; p.on = true; p.m.visible = true; Object.assign(p, init); return p; }
+function kill(p){ p.on = false; p.m.visible = false; }
+const puffMat = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.75, depthWrite:false });
+const P = {
+  vap: pool(30, new THREE.SphereGeometry(0.26,8,6), puffMat, 4),
+  escape: pool(14, new THREE.SphereGeometry(0.6,10,8), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.5, depthWrite:false }), 6),
+  bub: pool(20, new THREE.SphereGeometry(0.2,8,6), puffMat, 2),
+  big: pool(8, new THREE.SphereGeometry(0.55,10,8), puffMat, 2),
+  drip: pool(14, new THREE.SphereGeometry(0.17,8,6), M.chamberLiq, 2),
+  sif: pool(40, new THREE.SphereGeometry(0.2,8,6), M.chamberLiq, 4),
+  hose: pool(40, new THREE.SphereGeometry(0.22,6,5), new THREE.MeshBasicMaterial({ color:0x2F8FC4 }), 5),
+};
+const emit = {}; function every(key, rate, dt, fn){ emit[key] = (emit[key] || 0) + rate*dt; while (emit[key] >= 1){ emit[key] -= 1; fn(); } }
+const vapPath = new THREE.CurvePath(); vapPath.add(ext.armCurve); vapPath.add(new THREE.LineCurve3(new V3(2.2,31,0), new V3(0,33.5,0))); vapPath.add(new THREE.LineCurve3(new V3(0,33.5,0), new V3(0,55.5,0)));
+const MANTA = [0, 0.25, 0.45];                                                        // mL/s de hexano que hierve (tiempo de proceso)
+
+function updateOperate(dt){
+  const T = performance.now()/1000, dts = dt*op.vel;
+  if (op.everOn && !op.done) op.t += dts;
+  // --- calentamiento y ebullición
+  const on = op.manta > 0;
+  op.dry = on && op.Vb < 6;                                                            // sin hexano en el balón: se sobrecalienta
+  op.T = on ? Math.min(op.dry ? 2 : 1, op.T + dts*(op.manta === 2 ? 0.02 : 0.012)) : Math.max(0, op.T - dts*0.008);
+  const boiling = on && op.T >= 1 && !op.dry, rate = boiling ? MANTA[op.manta] : 0, dV = Math.min(op.Vb, rate*dts);
+  op.Vb -= dV;
+  op.jf = op.pump ? Math.min(1, op.jf + dt*0.5) : Math.max(0, op.jf - dt*0.25);
+  const cooled = op.jf > 0.8;
+  if (dV){ if (cooled) op.Vch += dV; else op.lost += dV; }                            // sin agua, el vapor escapa por arriba
+  // --- extracción: la grasa pasa de la muestra al líquido de la cámara
+  const dripping = dV > 0 && cooled, k = CARGA[op.carga];
+  const cover = clamp01((level() - 18.9)/(Math.min(k.s, APEX) - 18.9));
+  const dLow = op.fatLow*(KC*cover + (dripping ? KP*8 : 0))*dts, dHigh = op.fatHigh*(dripping ? KP : 0)*dts;
+  if (op.Vch > 0.5){ op.fatLow -= dLow; op.fatHigh -= dHigh; op.fatCh += dLow + dHigh; }
+  // --- sifón: se ceba al llegar a la curva y vacía la cámara de golpe
+  if (!op.sif && op.Vch >= VSIF){ op.sif = true; op.ciclos++; if (op.carga === 'sinAlgodon') op.solids += 0.012 + Math.random()*0.006; }
+  if (op.sif){ const d = Math.min(op.Vch, Math.max(14*dt, 4*MANTA[2]*dts)), fr = op.Vch > 0 ? d/op.Vch : 1;
+    const df = op.fatCh*fr; op.fatCh -= df; op.fatB += df; op.Vch -= d; op.Vb += d;
+    if (op.Vch < 0.3){ op.Vb += op.Vch; op.fatB += op.fatCh; op.Vch = 0; op.fatCh = 0; op.sif = false; } }
+  // --- ebullición sin piedras: sacudidas
+  op.bump = Math.max(0, op.bump - dt*3);
+  if (boiling && !op.piedras){ op.bumpT -= dt; if (op.bumpT <= 0){ op.bump = 1; op.bumpT = 2 + Math.random()*3;
+    for (let i = 0; i < 6; i++) spawn(P.big, { x:(Math.random()-0.5)*4, y:4.8, z:(Math.random()-0.5)*4, v:9 + Math.random()*5 }); } }
+  // --- piezas animadas
+  mantle.knob.rotation.y += ((-op.manta*1.3) - mantle.knob.rotation.y)*Math.min(1, dt*8);
+  mantle.led.color.set(on ? 0xF0782D : 0x55606a);
+  mantle.glow.color.set(0x3A2A22).lerp(new THREE.Color(0xE0662A), on ? 0.35 + 0.3*op.manta : 0);
+  pump.led.color.set(op.pump ? 0x3ED37A : 0x55606a);
+  cond.water.scale.y = Math.max(0.001, 14.6*op.jf);
+  flask.liq.mesh.position.x = op.bump*Math.sin(T*60)*0.12;
+  syncLiquids();
+  // --- partículas
+  const surf = 4.2 + 0.15 + capH(op.Vb, 4.85);
+  every('bub', boiling ? (op.piedras ? 10 + op.manta*6 : 1) : 0, dt, () => { const a = Math.random()*6.28, r = Math.random()*2.6;
+    spawn(P.bub, { x:Math.cos(a)*r, z:Math.sin(a)*r, y:4.9, top:surf - 0.15 }); });
+  for (const p of P.bub) if (p.on){ p.y += dt*(4 + Math.random()*2); if (p.y >= p.top) kill(p); else p.m.position.set(p.x, p.y, p.z); }
+  for (const p of P.big) if (p.on){ p.y += dt*p.v; if (p.y >= surf + 1.2) kill(p); else p.m.position.set(p.x, p.y, p.z); }
+  every('vap', boiling ? 6 + op.manta*6 : 0, dt, () => spawn(P.vap, { u:0 }));
+  const uCond = 0.66;                                                                   // con agua fría el vapor se condensa en las primeras bolas
+  for (const p of P.vap) if (p.on){ p.u += dt*0.42; const lim = cooled ? uCond : 1;
+    if (p.u >= lim){ kill(p); if (!cooled) spawn(P.escape, { x:0, y:55.5, z:0, life:0 }); continue; }
+    p.m.position.copy(vapPath.getPointAt(p.u)); p.m.scale.setScalar(cooled && p.u > 0.5 ? Math.max(0.2, 1 - (p.u - 0.5)/0.16) : 1); }
+  for (const p of P.escape) if (p.on){ p.life += dt; p.y += dt*3; p.x += dt*1.5; p.m.position.set(p.x, p.y, p.z); p.m.scale.setScalar(1 + p.life*1.5); if (p.life > 1.8) kill(p); }
+  const dripTop = Math.max(level(), CARGA[op.carga].s + (CARGA[op.carga].algodon ? 0.7 : 0));
+  every('drip', dripping ? 3 + op.manta*3 : 0, dt, () => spawn(P.drip, { y:32.4, v:0 }));
+  for (const p of P.drip) if (p.on){ p.v -= 60*dt; p.y += p.v*dt; if (p.y <= dripTop) kill(p); else p.m.position.set(0, p.y, 0); }
+  every('sif', op.sif ? 28 : 0, dt, () => spawn(P.sif, { u:0 }));
+  for (const p of P.sif) if (p.on){ p.u += dt*0.9; if (p.u >= 1){ kill(p); continue; } p.m.position.copy(ext.sifCurve.getPointAt(p.u)); }
+  every('hose', op.pump ? 22 : 0, dt, () => spawn(P.hose, { u:0, c:Math.random() < 0.5 ? 0 : 1 }));
+  for (const p of P.hose) if (p.on){ p.u += dt*0.5; if (p.u >= 1 || !op.pump) kill(p); else p.m.position.copy(pump.curves[p.c].getPointAt(p.u)); }
+  // --- panel
+  const st = opStatus(), key = st.join('|') + canFinish() + op.pump + op.manta + op.piedras + op.vel + op.everOn + op.done;
+  if (key !== op.lastKey) renderOperatePanel();
+  const rest = (op.fatLow + op.fatHigh)/op.fatTot;
+  setTxt('vCic', String(op.ciclos)); setTxt('vT', `${fmt(tSolv())} °C`); setTxt('vB', `${fmt(op.Vb,0)} mL`);
+  setTxt('vCh', `${fmt(op.Vch,0)} de ${VSIF} mL`); setMeter('mCh', op.Vch/VSIF); setMeter('mRest', rest);
+  setTxt('vRest', `${fmt(rest*100,0)} %`);
+  const h = Math.floor(op.t/3600), mi = Math.floor(op.t/60)%60; setTxt('vTime', `${h} h ${String(mi).padStart(2,'0')} min`);
+}
+function setMeter(id, v){ const el = document.getElementById(id); if (el) el.style.width = (clamp01(v)*100).toFixed(1) + '%'; }
+function setTxt(id, s){ const el = document.getElementById(id); if (el && el.textContent !== s) el.textContent = s; }
+
+function opStatus(){
+  const on = op.manta > 0, boiling = on && op.T >= 1 && !op.dry, cooled = op.jf > 0.8, lowRest = op.fatLow/op.fatTot;
+  if (op.done) return ['', 'Extracción terminada. Revisa el resultado de la pesada.'];
+  if (op.dry) return ['warn','¡El balón está casi seco! Toda la carga de hexano está en la cámara y el extracto se sobrecalienta. Apaga la manta. Faltó disolvente: debe ser 1,5 a 2 veces el volumen del sifón.'];
+  if (boiling && !cooled) return ['warn','Los vapores de hexano salen por arriba del refrigerante: son inflamables y la cámara no se llena. Enciende el agua.'];
+  if (on && !op.pump) return ['warn','Primero el agua del refrigerante y después el calor.'];
+  if (boiling && !op.piedras) return ['warn','Ebullición con sacudidas (bumping): faltan piedras de ebullición. Apaga, deja enfriar y agrégalas en frío.'];
+  if (op.sif) return ['ok',`¡El sifón se cebó! La cámara se vacía de golpe en el balón. Ciclo ${op.ciclos}.`];
+  if (boiling && lowRest < 0.03 && op.ciclos >= 2) return ['ok','El líquido de la cámara ya sale casi incoloro: la muestra está agotada. Apaga la manta justo después de una descarga del sifón.'];
+  if (boiling && op.Vch > 0 && level() >= 18.9) return ['',`El hexano condensado gotea sobre la muestra y llena la cámara. El sifón sube al mismo nivel; cuando llegue a la curva, descargará.`];
+  if (boiling) return ['','El vapor sube por el brazo lateral, se condensa en las bolas del refrigerante y empieza a gotear.'];
+  if (on) return ['',`Calentando el hexano. Hierve a ${fmt(op.Tb)} °C en ${LUGARES[op.lugar].nombre}.`];
+  if (op.everOn && op.Vch > 3) return ['warn',`Apagaste con ${fmt(op.Vch,0)} mL en la cámara: esa grasa no llegó al balón. Lo correcto es apagar justo después de una descarga.`];
+  if (op.everOn && op.T >= 0.4) return ['','Enfriando antes de desmontar…'];
+  if (canFinish()) return ['ok','Frío. Ya puedes retirar el balón, evaporar el hexano y pesar la grasa.'];
+  return ['','Revisa el montaje y la carga. Luego enciende la bomba del refrigerante y la manta.'];
+}
+
+function resultsHTML(){
+  const r = op.res, mu = MUESTRAS[op.muestra], err = r.pct - r.ref, notes = [];
+  if (op.carga === 'alto') notes.push(`La parte de la muestra sobre la curva del sifón nunca se sumergió: quedaron ${fmt(r.queda,3)} g de grasa sin extraer.`);
+  else if (r.queda/op.fatTot > 0.04) notes.push(`Faltaron ciclos: quedaron ${fmt(r.queda,3)} g de grasa en la muestra.`);
+  if (r.camara > 0.02) notes.push(`${fmt(r.camara,3)} g de grasa quedaron en la cámara porque apagaste antes de la descarga.`);
+  if (op.carga === 'sinAlgodon') notes.push(`Sin algodón pasaron ${fmt(op.solids,3)} g de partículas de muestra al balón y se pesaron como si fueran grasa.`);
+  if (op.lost > 1) notes.push(`Se perdieron ${fmt(op.lost,0)} mL de hexano por arriba del refrigerante.`);
+  return `<div class="block"><h4>Gravimetría</h4><div class="calc">
+    Balón vacío (tara) ......... ${fmt(r.tara,4)} g<br>Balón + grasa, sin hexano .... ${fmt(r.bruto,4)} g<br>
+    Grasa = ${fmt(r.bruto,4)} − ${fmt(r.tara,4)} = <b>${fmt(r.grasa,4)} g</b><br>
+    % grasa = ${fmt(r.grasa,4)} / ${fmt(M_MUESTRA,4)} × 100 = <b>${fmt(r.pct,2)} %</b></div></div>
+    <table class="res"><tbody>
+      <tr><td>Grasa real de esta muestra de ${mu.nombre.toLowerCase()}</td><td class="n">${fmt(r.ref,2)} %</td></tr>
+      <tr><td>Diferencia</td><td class="n ${Math.abs(err) <= 0.5 ? 'tag-ok' : 'tag-warn'}">${err >= 0 ? '+' : '−'}${fmt(Math.abs(err),2)} puntos</td></tr>
+      <tr><td>Ciclos del sifón</td><td class="n">${op.ciclos}</td></tr>
+    </tbody></table>
+    ${notes.length ? notes.map(n => `<p class="tag-warn">${n}</p>`).join('') : '<p class="tag-ok">Extracción completa y bien terminada.</p>'}`;
+}
+
+function renderOperatePanel(){
+  const [kind, msg] = opStatus(), lock = op.everOn, mu = MUESTRAS[op.muestra];
+  const seg = (name, opts, cur, attr, disabled=false) => `<div class="seg" role="group" aria-label="${name}">${opts.map((t,i) => `<button ${attr}="${i}" aria-pressed="${cur===i}" ${disabled?'disabled':''}>${t}</button>`).join('')}</div>`;
+  const mk_ = Object.keys(MUESTRAS), cg = Object.keys(CARGA), lk = Object.keys(LUGARES);
+  panel.innerHTML = `<div class="block"><h4>Modo operar</h4><h2>Extrae y pesa la grasa</h2></div>
+    <div class="ctl"><h4>Muestra (5,0000 g, molida y seca)</h4>${seg('Muestra', mk_.map(k => MUESTRAS[k].nombre), mk_.indexOf(op.muestra), 'data-mu', lock)}</div>
+    <div class="ctl"><h4>Carga del cartucho</h4>${seg('Carga', ['Bien cargado','Sobre el sifón','Sin algodón'], cg.indexOf(op.carga), 'data-cg', lock)}</div>
+    <div class="ctl"><h4>Hexano en el balón</h4>${seg('Volumen', ['175 mL','100 mL'], op.vol === 175 ? 0 : 1, 'data-vo', lock)}</div>
+    <div class="ctl"><h4>Lugar</h4>${seg('Lugar', lk.map(k => LUGARES[k].nombre), lk.indexOf(op.lugar), 'data-lu', lock)}
+      ${lock ? '<span class="note">Para cambiar la muestra o el montaje, reinicia.</span>' : ''}</div>
+    <div class="ctl"><h4>Piedras de ebullición</h4>${seg('Piedras', ['Con piedras','Sin piedras'], op.piedras ? 0 : 1, 'data-pi', op.done)}</div>
+    <div class="ctl"><h4>Agua del refrigerante (bomba)</h4>${seg('Bomba', ['Apagada','Encendida'], op.pump ? 1 : 0, 'data-pu', op.done)}</div>
+    <div class="ctl"><h4>Manta calefactora</h4>${seg('Manta', ['Apagada','Media','Alta'], op.manta, 'data-ma', op.done)}</div>
+    <div class="reading"><div><h4>Ciclos del sifón</h4><span class="note">Tiempo de extracción: <span id="vTime">0 h 00 min</span></span></div><div><span class="v" id="vCic">${op.ciclos}</span></div></div>
+    <div class="meters">
+      <div class="mrow"><span>Hexano del balón · <b id="vB"></b> · <span id="vT"></span></span></div>
+      <div class="mrow"><span>Cámara · <span id="vCh"></span></span><div class="meter"><i class="w" id="mCh"></i></div></div>
+      <div class="mrow"><span>Grasa que queda en la muestra · <span id="vRest"></span></span><div class="meter"><i class="o" id="mRest"></i></div></div>
+    </div>
+    <div class="state ${kind}">${msg}</div>
+    <div class="rin-row"><button class="btn" id="lookSif">Ver el sifón de cerca</button>
+      ${seg('Velocidad', ['× 1','× 10','× 60'], [1,10,60].indexOf(op.vel), 'data-ve')}</div>
+    ${op.done ? resultsHTML() : `<div class="ctl"><button class="btn primary" id="fin" ${canFinish() ? '' : 'disabled'}>Evaporar el hexano y pesar</button>
+      <span class="note">Se habilita con la manta apagada, el balón frío y al menos un ciclo completo.</span></div>`}
+    <details class="ph"><summary>¿Cómo funciona el sifón?</summary><div class="calc" style="font-family:var(--f-body);font-size:13.5px">
+      El sifón y la cámara son vasos comunicantes: el líquido sube por el sifón al mismo nivel que en la cámara.
+      Cuando el nivel supera la curva (unos ${VSIF} mL), el líquido empieza a bajar por la otra rama y arrastra todo el resto: la cámara se vacía de golpe.
+      El hexano vuelve al balón con la grasa disuelta; el hexano vuelve a hervir, pero la grasa se queda abajo.<br><br>
+      El hexano hierve a ${fmt(op.Tb)} °C con ${LUGARES[op.lugar].P} mmHg (ecuación de Antoine).</div></details>
+    <button class="btn" id="opReset">Reiniciar</button>
+    <p class="note">Grasa de referencia aproximada: maní ~49 %, sacha inchi ~45 %, quinua ~6 %; varía con la variedad. El caudal de vapor y la velocidad de extracción están simplificados.</p>`;
+  const on = (sel, fn) => panel.querySelectorAll(sel).forEach(b => b.onclick = () => fn(b));
+  on('[data-mu]', b => { op.muestra = mk_[+b.dataset.mu]; resetOperate(); });
+  on('[data-cg]', b => { op.carga = cg[+b.dataset.cg]; resetOperate(); });
+  on('[data-vo]', b => { op.vol = b.dataset.vo === '0' ? 175 : 100; resetOperate(); });
+  on('[data-lu]', b => { op.lugar = lk[+b.dataset.lu]; resetOperate(); });
+  on('[data-pi]', b => setPiedras(b.dataset.pi === '0'));
+  on('[data-pu]', b => setPump(b.dataset.pu === '1'));
+  on('[data-ma]', b => setManta(+b.dataset.ma));
+  on('[data-ve]', b => { op.vel = [1,10,60][+b.dataset.ve]; renderOperatePanel(); });
+  $('#lookSif').onclick = lookAtSiphon;
+  const f = $('#fin'); if (f) f.onclick = () => canFinish() && finish();
+  $('#opReset').onclick = () => resetOperate();
+  op.lastKey = [kind,msg].join('|') + canFinish() + op.pump + op.manta + op.piedras + op.vel + op.everOn + op.done;
+}
+
+/* ====================== 9) Cambio de modo, eventos y bucle ====================== */
+function setMode(name){ if (mode === MODES[name]) return; mode?.exit(); mode = MODES[name];
+  document.querySelectorAll('.modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === name)); mode.enter(); }
+document.querySelectorAll('.modes button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', ev => { downAt = [ev.clientX, ev.clientY];
+  if (mode === MODES.ensamblar && ev.button === 0 && startDrag(ev)){ renderer.domElement.setPointerCapture(ev.pointerId); ev.stopImmediatePropagation(); } }, { capture:true });
+renderer.domElement.addEventListener('pointermove', ev => {
+  if (drag){ moveDrag(ev); return; }
+  if (mode === MODES.ensamblar){ if (!ev.buttons) renderer.domElement.style.cursor = pick(ev, looseList()) ? 'grab' : ''; return; }
+  if (ev.buttons) return;
+  const hit = pick(ev);
+  if (mode === MODES.operar){ renderer.domElement.style.cursor = hit?.object.userData.ctrl ? 'pointer' : ''; return; }
+  const key = hit ? keyOf(hit.object) : null;
+  if (key !== hovered){ if (hovered && hovered !== selected) setHighlight(hovered,false); hovered = key; if (hovered && hovered !== selected) setHighlight(hovered,true,0.12); }
+  renderer.domElement.style.cursor = key ? 'pointer' : ''; });
+renderer.domElement.addEventListener('pointerup', ev => { if (drag){ endDrag(); return; }
+  if (!downAt || Math.hypot(ev.clientX-downAt[0], ev.clientY-downAt[1]) > 5) return; mode.click?.(pick(ev)); });
+const curTheta = () => new THREE.Spherical().setFromVector3(new V3().subVectors(camera.position, controls.target)).theta;
+$('#tRotL').onclick = () => flyTo({ theta: curTheta() - Math.PI/4 }, 600);
+$('#tRotR').onclick = () => flyTo({ theta: curTheta() + Math.PI/4 }, 600);
+$('#tIn').onclick = () => flyTo({ zoom: Math.min(controls.maxZoom, camera.zoom*1.35) }, 350);
+$('#tOut').onclick = () => flyTo({ zoom: Math.max(controls.minZoom, camera.zoom/1.35) }, 350);
+$('#tHome').onclick = () => flyTo(mode.view());
+$('#tLabels').onclick = e => { labelsOn = !labelsOn; e.currentTarget.setAttribute('aria-pressed', labelsOn); stage.classList.toggle('labels-off', !labelsOn); };
+function applyTheme(){ outlineMat.uniforms.c.value.set(cssVar('--ink3d')); accentColor.set(cssVar('--accent'));
+  for (const m of glassMats){ m.uniforms.tint.value.set(cssVar('--glass')); m.uniforms.ink.value.set(cssVar('--glassink')); m.uniforms.acc.value.set(cssVar('--accent')); }
+  grid.material.color.set(cssVar('--grid')); benchMat.color.set(cssVar('--bench')); }
+function resize(){ const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); const a = w/h;
+  camera.left = -VIEW*a/2; camera.right = VIEW*a/2; camera.top = VIEW/2; camera.bottom = -VIEW/2; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(stage);
+document.fonts?.ready.then(() => hotspots.forEach(h => h.tw = 0));
+renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('El navegador reinició el 3D. Recarga si no vuelve solo.', 'warn'); });
+applyTheme(); resize(); resetOperate(false); setMode('explorar'); $('#loading').remove();
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => { const dt = Math.min(clock.getDelta(), 0.1);
+  stepTween(dt); stepAnims(dt); controls.update(); mode.update(dt); renderer.render(scene, camera); });
+</script>

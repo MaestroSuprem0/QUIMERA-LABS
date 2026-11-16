@@ -1,0 +1,878 @@
+<title>QUIMERA LABS Titulación</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: banco de laboratorio a pantalla completa (escena 3D) + cuaderno de práctica a la derecha; en móvil se apilan. */
+:root{
+  --bg:#FFFFFF; --surface:#FFFFFF; --ink:#15212C; --muted:#566874; --line:#D5DEE3;
+  --accent:#C2276F; --accent-soft:#F7DCE8; --ok:#23794E; --warn:#9A5B00;
+  --ink3d:#15212C; --grid:#D3DCE1; --glass:#BFE2EC; --bench:#F1F4F6; --glassink:#15212C; color-scheme:light;
+  --f-display:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;min-height:0}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;justify-content:space-between;
+  padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-bottom:1px solid var(--line)}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.eyebrow b{color:var(--accent);font-weight:500}
+h1{margin:0;font-family:var(--f-display);font-stretch:78%;font-weight:800;font-size:clamp(22px,3vw,30px);letter-spacing:.01em;line-height:1.05;text-wrap:balance}
+.modes{display:flex;border:1.5px solid var(--ink);border-radius:999px;padding:3px;gap:2px;background:var(--surface)}
+.modes button{font:600 13px/1 var(--f-display);font-stretch:85%;letter-spacing:.08em;text-transform:uppercase;border:0;background:transparent;color:var(--ink);
+  padding:9px 14px;border-radius:999px;cursor:pointer;display:flex;gap:7px;align-items:center}
+.modes button .n{font-family:var(--f-mono);font-weight:400;opacity:.6}
+.modes button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.modes button:focus-visible,.tool:focus-visible,.btn:focus-visible,.seg button:focus-visible,.chip:focus-visible,.dot:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+main{display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:0}
+.stage{position:relative;overflow:hidden;min-height:0;touch-action:none}
+.stage canvas{display:block;width:100%;height:100%}
+#overlay{position:absolute;inset:0;pointer-events:none}
+#overlay svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.leader{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 4}
+.tie{fill:none;stroke:var(--ink);stroke-width:1.5}
+.dot{position:absolute;left:0;top:0;pointer-events:auto;width:18px;height:18px;border-radius:50%;border:0;padding:0;cursor:pointer;background:var(--surface);
+  box-shadow:0 0 0 2px var(--ink),inset 0 0 0 4px var(--surface),inset 0 0 0 9px var(--accent)}
+.dot.sel{box-shadow:0 0 0 2px var(--accent),inset 0 0 0 4px var(--surface),inset 0 0 0 9px var(--accent)}
+.tag{position:absolute;left:0;top:0;pointer-events:auto;font:700 11.5px/1 var(--f-display);font-stretch:85%;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;
+  background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);border-radius:6px;padding:6px 8px;cursor:pointer}
+.tag.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.locked .toolbar{display:none}
+.labels-off .tag,.labels-off .tie{display:none}
+.hdr-right{display:flex;gap:10px;align-items:center}
+.theme{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--ink);background:var(--surface);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.theme svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.theme:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.popup{position:absolute;top:16px;left:16px;width:min(300px,calc(100% - 32px));background:var(--surface);border:1.5px solid var(--ink);border-radius:10px;
+  padding:14px 16px;box-shadow:6px 6px 0 var(--line);display:flex;flex-direction:column;gap:8px}
+.popup h3{margin:0;font:800 17px/1.15 var(--f-display);font-stretch:80%;letter-spacing:.04em;text-transform:uppercase;padding-right:28px}
+.popup p{margin:0;color:var(--muted);font-size:14px}
+.popup .x{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;background:transparent;color:var(--ink);cursor:pointer;font-size:18px;border-radius:6px}
+.btn{align-self:flex-start;font:700 12px/1 var(--f-display);font-stretch:85%;letter-spacing:.09em;text-transform:uppercase;border:1.5px solid var(--ink);
+  background:transparent;color:var(--ink);border-radius:7px;padding:9px 12px;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.btn:hover{background:var(--ink);color:var(--surface)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.toolbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:2px;
+  background:var(--surface);border:1.5px solid var(--ink);border-radius:12px;padding:4px}
+.tool{width:38px;height:36px;border:0;border-radius:8px;background:transparent;color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.tool:hover{background:var(--accent-soft)}
+.tool[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.tool svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sep{width:1px;background:var(--line);margin:6px 3px}
+.toast{position:absolute;left:16px;right:16px;bottom:calc(66px + env(safe-area-inset-bottom,0px));margin-inline:auto;width:fit-content;max-width:min(520px,calc(100% - 32px));
+  background:var(--ink);color:var(--surface);border-radius:8px;padding:9px 14px;font-size:14px;text-align:center;transition:opacity .25s}
+.toast.warn{background:var(--warn);color:#fff}
+.toast.ok{background:var(--ok);color:#fff}
+.hint{position:absolute;right:16px;top:14px;font-family:var(--f-mono);font-size:11.5px;color:var(--muted);text-align:right;line-height:1.6}
+
+aside{border-left:1px solid var(--line);background:var(--surface);overflow-y:auto;min-height:0;min-width:0;
+  padding-block:20px 28px;padding-left:20px;padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+aside h2{margin:0;font:800 24px/1.1 var(--f-display);font-stretch:78%;letter-spacing:.02em;text-transform:uppercase;text-wrap:balance}
+aside h4{margin:0 0 4px;font:700 11.5px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+aside p{margin:0}
+.lead{color:var(--muted)}
+.spec{font-family:var(--f-mono);font-size:12.5px;border:1px dashed var(--line);border-radius:6px;padding:8px 10px;color:var(--ink)}
+.block{display:flex;flex-direction:column;gap:4px}
+.block.err{border-left:3px solid var(--warn);padding-left:12px}
+.block.err h4{color:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:600 12.5px/1 var(--f-body);border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:7px 11px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.steps li{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start;padding:9px 0;border-bottom:1px solid var(--line)}
+.steps .st{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font:500 11px/1 var(--f-mono);color:var(--muted)}
+.steps li.done .st{background:var(--ok);border-color:var(--ok);color:#fff}
+.steps li.next .st{border-color:var(--accent);color:var(--accent)}
+.steps li.next b{color:var(--accent)}
+.steps li.locked{opacity:.55}
+.steps small{display:block;color:var(--muted);font-size:13px}
+.progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.ctl{display:flex;flex-direction:column;gap:8px}
+.seg{display:flex;border:1.5px solid var(--ink);border-radius:9px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink);font:600 13px/1 var(--f-body);padding:10px 6px;cursor:pointer}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.rin-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rin{font:500 18px/1 var(--f-mono);font-variant-numeric:tabular-nums;width:7.2em;border:1.5px solid var(--ink);border-radius:8px;padding:9px 10px;background:var(--surface);color:var(--ink)}
+.rin:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rin:disabled{opacity:.6}
+.sample{border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font-size:14px;display:flex;flex-direction:column;gap:2px}
+.sample b{font-family:var(--f-mono);font-weight:500}
+.res{width:100%;border-collapse:collapse;font-size:13.5px}
+.res th,.res td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.res td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.res th{font:600 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tag-ok{color:var(--ok);font-weight:600}.tag-warn{color:var(--warn);font-weight:600}
+.calc{font-family:var(--f-mono);font-size:13px;background:var(--accent-soft);border-radius:8px;padding:10px 12px;line-height:1.7}
+details.ph summary{cursor:pointer;font-size:13.5px;color:var(--muted)}
+details.ph .v{font:500 22px var(--f-mono)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{background:transparent;color:var(--ink)}
+.reading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border:1.5px solid var(--ink);border-radius:9px;padding:12px 14px}
+.reading .v{font:500 30px/1 var(--f-mono);font-variant-numeric:tabular-nums}
+.reading .u{font:500 13px var(--f-mono);color:var(--muted)}
+.swatch{display:flex;gap:10px;align-items:center}
+.swatch i{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--ink);flex:none}
+.state{border-radius:8px;padding:10px 12px;background:var(--accent-soft);font-size:14px}
+.state.warn{background:transparent;border:1.5px solid var(--warn)}
+.state.ok{background:transparent;border:1.5px solid var(--ok)}
+.note{font-size:13px;color:var(--muted)}
+.loading{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+
+@media (max-width:860px){
+  .app{height:auto}
+  main{grid-template-columns:1fr}
+  .stage{height:62vh;min-height:430px}
+  aside{border-left:0;border-top:1px solid var(--line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .hint{display:none}
+  .modes button{padding:9px 11px}
+}
+@media (prefers-reduced-motion: reduce){ .progress i,.toast{transition:none} }
+</style>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <span class="eyebrow"><b>QUIMERA LABS</b> · Equipo 01</span>
+      <h1>Montaje de titulación ácido-base</h1>
+    </div>
+    <div class="hdr-right">
+    <nav class="modes" aria-label="Modo">
+      <button data-mode="explorar" aria-pressed="true"><span class="n">1</span>Explorar</button>
+      <button data-mode="ensamblar" aria-pressed="false"><span class="n">2</span>Ensamblar</button>
+      <button data-mode="operar" aria-pressed="false"><span class="n">3</span>Operar</button>
+    </nav>
+    </div>
+  </header>
+  <main>
+    <section class="stage" id="stage" aria-label="Modelo 3D del montaje">
+      <div class="loading" id="loading">Montando el banco…</div>
+      <div id="overlay"><svg aria-hidden="true"><path class="tie" id="ties" d=""></path><path class="leader" id="leader" d=""></path></svg></div>
+      <div class="popup" id="popup" hidden>
+        <button class="x" id="popClose" aria-label="Cerrar">×</button>
+        <h3 id="popTitle"></h3>
+        <p id="popText"></p>
+        <button class="btn" id="popZoom"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Acercar</button>
+      </div>
+      <div class="hint" id="hint">Arrastra para girar · rueda para zoom<br>clic derecho para desplazar</div>
+      <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+      <div class="toolbar" role="toolbar" aria-label="Vista">
+        <button class="tool" id="tRotL" title="Girar a la izquierda" aria-label="Girar a la izquierda"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4h4"/></svg></button>
+        <button class="tool" id="tRotR" title="Girar a la derecha" aria-label="Girar a la derecha"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4h-4"/></svg></button>
+        <span class="sep"></span>
+        <button class="tool" id="tOut" title="Alejar" aria-label="Alejar"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <button class="tool" id="tIn" title="Acercar" aria-label="Acercar"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button>
+        <span class="sep"></span>
+        <button class="tool" id="tHome" title="Vista inicial" aria-label="Vista inicial"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
+        <button class="tool" id="tLabels" title="Mostrar etiquetas" aria-label="Mostrar etiquetas" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 12h3M9 7h12v10H9z"/><circle cx="4" cy="12" r="1.5"/></svg></button>
+      </div>
+    </section>
+    <aside id="panel" aria-live="polite"></aside>
+  </main>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* =====================================================================
+   1) MANIFIESTO DEL EQUIPO — datos, no código.
+   Añadir "destilación" o "cromatografía" = escribir otro objeto como este
+   + sus funciones de construcción. El motor (secciones 3–6) no cambia.
+   ===================================================================== */
+const EQUIPO = {
+  id: 'titulacion',
+  partes: {
+    soporte: { nombre:'Soporte universal', corto:'Base pesada y varilla vertical: el esqueleto del montaje.',
+      funcion:'Da un punto fijo y estable para sujetar la bureta en vertical. El peso de la base evita que el conjunto vuelque.',
+      uso:'Coloca la base de forma que la bureta quede encima de ella, no fuera. La varilla va atrás, lejos de tu mano.',
+      error:'Montar la bureta por fuera de la base: el centro de gravedad queda fuera y el soporte puede volcar.',
+      dato:'Base de hierro fundido · varilla de acero', requiere:[] },
+    pinza: { nombre:'Pinza para bureta', corto:'Pinza doble con muelle que sujeta la bureta sin tapar la escala.',
+      funcion:'Fija la bureta a la varilla. Las mordazas forradas de goma la sostienen sin rayarla ni romperla.',
+      uso:'Ajusta la nuez a la varilla, abre las mordazas y coloca la bureta. Comprueba que quede vertical mirándola de frente y de lado.',
+      error:'Bureta inclinada: el menisco se lee mal y las gotas caen fuera del matraz.',
+      dato:'Mordazas con goma · admite 1 o 2 buretas', requiere:['soporte'] },
+    bureta: { nombre:'Bureta de 50 mL', corto:'Tubo graduado que entrega volúmenes variables con precisión.',
+      funcion:'Mide cuánto titulante añades. La escala crece hacia abajo: el 0 está arriba y el 50 abajo.',
+      uso:'Enjuágala con el titulante, llénala por encima del 0, retira el embudo y purga la punta para sacar burbujas. Lee la parte baja del menisco con los ojos a su altura.',
+      error:'Dejar el embudo puesto o una burbuja en la punta: el volumen leído no es el que cayó.',
+      dato:'Divisiones de 0,1 mL · tolerancia ±0,05 mL (clase A)', requiere:['pinza'], tag:'Bureta' },
+    llave: { nombre:'Llave de paso', corto:'Llave de PTFE que regula el flujo, del chorro a la gota.',
+      funcion:'Controla cuánto titulante sale. Con la manija paralela al tubo está abierta; perpendicular, cerrada.',
+      uso:'Ábrela con la mano no dominante rodeando la bureta, así el macho no se sale del cuerpo. Cerca del punto final, gota a gota.',
+      error:'Abrir de golpe al final: te pasas del punto final con una sola descarga.',
+      dato:'Macho de PTFE (teflón), no necesita grasa', sub:'bureta' },
+    agitador: { nombre:'Agitador magnético', corto:'Un imán giratorio bajo la placa mueve la barra dentro del matraz.',
+      funcion:'Mezcla de forma continua cada gota que cae, así el cambio de color es uniforme y te deja la mano libre.',
+      uso:'Centra el matraz sobre la placa, enciende y sube la velocidad poco a poco hasta ver un pequeño remolino.',
+      error:'Arrancar a velocidad alta: la barra se desacopla del imán, salta y salpica. Si el equipo calienta, en una titulación la calefacción va apagada.',
+      dato:'Velocidad regulable · placa cerámica', requiere:['soporte'] },
+    matraz: { nombre:'Matraz Erlenmeyer 250 mL', corto:'Recipiente cónico con la muestra y el indicador.',
+      funcion:'Contiene el analito y unas gotas de indicador. Su forma cónica permite agitar sin salpicar y la boca estrecha retiene el líquido.',
+      uso:'Deja la punta de la bureta 1–2 cm dentro del cuello. Un papel blanco debajo ayuda a ver el viraje.',
+      error:'Usar un vaso de precipitados: al agitar, el líquido salpica y se pierde muestra.',
+      dato:'Vidrio borosilicato · su graduación es aproximada, no mide', requiere:['agitador'], tag:'Matraz Erlenmeyer' },
+    barra: { nombre:'Barra magnética', corto:'Pastilla con imán recubierta de PTFE que gira dentro del líquido.',
+      funcion:'Sigue al imán del agitador y mueve el líquido desde dentro.',
+      uso:'Deslízala por la pared inclinando el matraz; si la dejas caer de golpe puedes romper el fondo. Retírala con una varilla imantada.',
+      error:'Olvidarla dentro al desechar la muestra.',
+      dato:'Recubrimiento de PTFE, químicamente inerte', requiere:['matraz'] },
+  },
+  orden: ['soporte','pinza','bureta','llave','agitador','matraz','barra'],
+  // Posición final de cada pieza (origen de su grupo) y dónde aparece suelta en modo Ensamblar.
+  home:    { soporte:[0,0,-2], agitador:[0,1.6,1], matraz:[0,8.7,0], barra:[0,9.05,0], pinza:[0,68,-7.5], bureta:[0,20.6,0] },
+  scatter: { soporte:[-36,0,20,0], agitador:[32,-1.6,-26,0], matraz:[-32,-8.7,-14,0], barra:[26,-8.7,24,0], pinza:[34,-66.5,6,0], bureta:[-26,-19.7,34,-Math.PI/2] },
+};
+
+/* ====================== 2) Utilidades y tema ====================== */
+const $ = s => document.querySelector(s);
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const V2 = THREE.Vector2, V3 = THREE.Vector3;
+
+/* ====================== 3) Núcleo: escena, cámara, render ====================== */
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));        // presupuesto: nunca más de 2x
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const VIEW = 100;                                             // unidades de mundo visibles en vertical a zoom 1
+const camera = new THREE.OrthographicCamera(-50,50,50,-50,1,2000);  // isométrica = ortográfica
+const HOME_VIEW = { target:new V3(0,40,0), zoom:1.3, theta:Math.PI/4, phi:1.08 };
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minPolarAngle = 0.35; controls.maxPolarAngle = Math.PI/2;  // hasta la altura del ojo, nunca desde abajo
+controls.minZoom = 0.55; controls.maxZoom = 34;   // zoom alto para leer el menisco
+controls.screenSpacePanning = true;
+function setView(v){ const s=new THREE.Spherical(300, v.phi, v.theta); camera.position.copy(v.target).add(new V3().setFromSpherical(s));
+  controls.target.copy(v.target); camera.zoom=v.zoom; camera.updateProjectionMatrix(); controls.update(); }
+setView(HOME_VIEW);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a99a6, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(40,90,55); sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera, { left:-70, right:70, top:70, bottom:-70, near:1, far:300 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+// Mesa de trabajo: da contraste y suelo al montaje en ambos temas
+const benchMat = new THREE.MeshLambertMaterial({ color:0xf1f4f6 });
+const bench = new THREE.Mesh(new RoundedBoxGeometry(120,2,120,3,1.2), benchMat);
+bench.position.y = -1; bench.receiveShadow = true; scene.add(bench);
+const grid = new THREE.GridHelper(116, 29); grid.position.y = 0.02; grid.material.transparent = true; grid.material.opacity = 0.7; scene.add(grid);
+
+/* ---- Estilo ilustrado: sombreado toon de 3 tonos + contorno por "casco invertido" ---- */
+const gradient = new THREE.DataTexture(new Uint8Array([80,165,255]), 3, 1, THREE.RedFormat);
+gradient.minFilter = gradient.magFilter = THREE.NearestFilter; gradient.needsUpdate = true;
+const toon = (color, extra={}) => new THREE.MeshToonMaterial({ color, gradientMap:gradient, ...extra });
+
+const outlineMat = new THREE.ShaderMaterial({
+  uniforms:{ c:{value:new THREE.Color()}, t:{value:0.11} }, side:THREE.BackSide,
+  vertexShader:`uniform float t; void main(){ vec3 p = position + normal * t; gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1.0); }`,
+  fragmentShader:`uniform vec3 c; void main(){ gl_FragColor = vec4(c,1.0); }`
+});
+// Vidrio "dibujado": fresnel que oscurece la silueta + un brillo vertical. Mucho más barato que transmission.
+const glassMats = [];
+function glassMat(){
+  const m = new THREE.ShaderMaterial({
+    uniforms:{ tint:{value:new THREE.Color()}, ink:{value:new THREE.Color()}, acc:{value:new THREE.Color()}, hi:{value:0} },
+    transparent:true, depthWrite:false, side:THREE.DoubleSide,
+    vertexShader:`varying vec3 vN; void main(){ vN = normalize(normalMatrix*normal); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader:`uniform vec3 tint; uniform vec3 ink; uniform vec3 acc; uniform float hi; varying vec3 vN;
+      void main(){ vec3 n = normalize(vN); float f = 1.0 - abs(n.z);
+        float rim = smoothstep(0.66, 0.97, f);
+        float band = gl_FrontFacing ? smoothstep(0.22,0.28,n.x) * (1.0 - smoothstep(0.40,0.46,n.x)) : 0.0;
+        vec3 col = mix(tint, ink, rim*0.9) + band*0.55; col = mix(col, acc, hi*0.45);
+        gl_FragColor = vec4(col, 0.10 + rim*0.82 + band*0.35 + hi*0.12); }`
+  });
+  glassMats.push(m); return m;
+}
+
+const pickables = [];          // SOLO lo que se puede clicar (nunca la escena entera)
+function mk(geo, mat, parent, { pos=[0,0,0], rot=[0,0,0], outline=true, shadow=true, part=null, sub=null, order=0 }={}){
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(...pos); m.rotation.set(...rot);
+  m.castShadow = shadow; m.receiveShadow = true; m.renderOrder = order;
+  if (outline){ const o = new THREE.Mesh(geo, outlineMat); o.userData.outline = true; o.castShadow=false; o.raycast=()=>{}; m.add(o); }
+  if (part){ m.userData.part = part; if (sub) m.userData.sub = sub; pickables.push(m); }
+  parent.add(m); return m;
+}
+// Colisionador invisible: las piezas delgadas (varilla, bureta) son difíciles de clicar sin él.
+const colliderMat = new THREE.MeshBasicMaterial({ visible:false });
+function collider(geo, parent, pos, part, sub){ const m = new THREE.Mesh(geo, colliderMat); m.position.set(...pos); m.userData.part = part; if(sub) m.userData.sub=sub; pickables.push(m); parent.add(m); return m; }
+function anchor(group, name, pos, side='right'){ const a = new THREE.Object3D(); a.position.set(...pos); a.userData = { name, side }; group.add(a); return a; }
+const box = (w,h,d,r=0.35) => new RoundedBoxGeometry(w,h,d,3,r);
+
+/* ====================== 4) Construcción procedural de cada pieza ====================== */
+const parts = {};     // key -> { group, anchors:[], placed }
+function newPart(key){ const g = new THREE.Group(); g.userData.key = key; g.position.set(...EQUIPO.home[key]); scene.add(g); parts[key] = { group:g, anchors:[], placed:true }; return g; }
+
+// Soporte universal
+{ const g = newPart('soporte');
+  mk(box(24,1.6,34,0.5), toon(0x2C3A48), g, { pos:[0,0.8,0], part:'soporte' });
+  mk(new THREE.CylinderGeometry(0.7,0.7,88,20), toon(0xBAC4CC), g, { pos:[0,1.6+44,-13], part:'soporte' });
+  mk(new THREE.SphereGeometry(0.8,16,10), toon(0xBAC4CC), g, { pos:[0,89.6,-13], part:'soporte' });
+  collider(new THREE.CylinderGeometry(2,2,88,8), g, [0,45.6,-13], 'soporte');
+  parts.soporte.anchors.push(anchor(g,'soporte',[11,1.6,13],'right')); }
+
+// Agitador magnético (placa)
+const stir = {};
+{ const g = newPart('agitador');
+  mk(box(18,6.5,20,0.9), toon(0xE6EBEE), g, { pos:[0,3.25,0], part:'agitador' });
+  mk(box(15,0.6,15,0.25), toon(0xF8F8F3), g, { pos:[0,6.75,-1], part:'agitador' });
+  mk(box(14,3.2,0.6,0.25), toon(0x2B3540), g, { pos:[0,3.0,10.0], part:'agitador', outline:false });
+  stir.knob = mk(new THREE.CylinderGeometry(1.15,1.25,1.4,20), toon(0x1C2630), g, { pos:[-3.5,3.0,10.8], rot:[Math.PI/2,0,0], part:'agitador' });
+  mk(box(0.25,0.9,0.3,0.1), toon(0xF8F8F3), stir.knob, { pos:[0,-0.75,-0.5], rot:[0,0,0], outline:false, shadow:false });
+  mk(new THREE.CylinderGeometry(1.0,1.1,1.2,20), toon(0x56606A), g, { pos:[3.5,3.0,10.8], rot:[Math.PI/2,0,0], part:'agitador' });
+  stir.ledMat = new THREE.MeshBasicMaterial({ color:0x55606a });
+  mk(new THREE.SphereGeometry(0.35,12,8), stir.ledMat, g, { pos:[0,3.0,10.4], outline:false, shadow:false });
+  parts.agitador.anchors.push(anchor(g,'agitador',[-8,3,11],'left')); }
+
+// Matraz Erlenmeyer (superficie de revolución = LatheGeometry)
+const FLASK = [[0,0],[3.95,0],[4.25,0.35],[4.3,0.9],[1.6,10.0],[1.45,10.6],[1.45,13.1],[1.72,13.25],[1.72,13.55],[1.45,13.6]].map(p=>new V2(...p));
+const wallR = y => y<0.9 ? 4.1 : y<10 ? 4.15+(1.55-4.15)*(y-0.9)/9.1 : 1.32;
+function liquidGeo(level){ const pts=[new V2(0,0.12)]; for(let i=0;i<=16;i++){ const y=0.12+(level-0.12)*i/16; pts.push(new V2(Math.max(0.05,wallR(y)-0.17), y)); } pts.push(new V2(0,level)); return new THREE.LatheGeometry(pts,40); }
+const flask = { level:4.2, builtLevel:4.2 };
+{ const g = newPart('matraz');
+  flask.liqMat = toon(0xEAF4F7, { transparent:true, opacity:0.82, side:THREE.DoubleSide });
+  flask.liq = mk(liquidGeo(flask.level), flask.liqMat, g, { outline:false, shadow:false, order:1, part:'matraz' });
+  mk(new THREE.LatheGeometry(FLASK,48), glassMat(), g, { outline:false, shadow:false, order:3, part:'matraz' });
+  parts.matraz.anchors.push(anchor(g,'matraz',[3.3,6,0.5],'right')); }
+
+// Barra magnética
+const bar = {};
+{ const g = newPart('barra');
+  bar.mesh = mk(new THREE.CapsuleGeometry(0.33,1.9,4,12), toon(0xFAFAF7), g, { rot:[0,0,Math.PI/2], part:'barra', order:2 });
+  mk(new THREE.CylinderGeometry(0.36,0.36,0.25,12), toon(0xD8DDE0), bar.mesh, { outline:false, shadow:false });
+  collider(new THREE.BoxGeometry(4.5,2.2,2.2), g, [0,0,0], 'barra');
+  parts.barra.anchors.push(anchor(g,'barra',[-1.2,0.2,1.6],'left')); }
+
+// Bureta: vidrio torneado + líquido + escala dibujada en canvas + llave
+const BURET = [[0.07,0],[0.12,0.25],[0.28,2.6],[0.34,3.0],[0.34,5.0],[0.45,5.3],[0.62,6.0],[0.62,56],[0.82,57],[0.86,57.5],[0.74,57.6]].map(p=>new V2(...p));
+const mlToY = ml => 54 - ml*0.92;                 // 0 mL arriba (y=54), 50 mL abajo (y=8)
+const buret = {};
+function gradTexture(color){
+  // Bureta clase A de 50 mL: división mínima 0,1 mL, números cada 1 mL. El 0 arriba.
+  const c = document.createElement('canvas'); c.width = 512; c.height = 8192; const g = c.getContext('2d');
+  const H = c.height - 1; g.fillStyle = color;
+  for (let t = 0; t <= 500; t++){ const m = t/10, y = Math.round(m/50*H);
+    const len = t%10 === 0 ? 300 : t%5 === 0 ? 210 : 120; g.fillRect(0, Math.min(H-3, Math.max(0, y-2)), len, 4);
+    if (t%10 === 0){ g.save(); g.translate(318, Math.min(H-8, Math.max(46, y+22))); g.scale(1, 0.38); g.font = '700 150px "IBM Plex Mono", monospace'; g.fillText(String(m), 0, 0); g.restore(); } }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; return tex;
+}
+{ const g = newPart('bureta');
+  buret.liqMat = toon(0xB7DCEB, { transparent:true, opacity:0.85 });
+  const col = new THREE.CylinderGeometry(0.5,0.5,1,20); col.translate(0,0.5,0);
+  buret.col = mk(col, buret.liqMat, g, { pos:[0,6,0], outline:false, shadow:false, order:1, part:'bureta' });
+  mk(new THREE.CylinderGeometry(0.22,0.06,2.4,12), buret.liqMat, g, { pos:[0,1.5,0], outline:false, shadow:false, order:1, part:'bureta' });
+  // Menisco cóncavo: se lee en su parte más baja (el centro)
+  buret.men = mk(new THREE.LatheGeometry([[0,0],[0.22,0.01],[0.38,0.035],[0.47,0.07],[0.51,0.12],[0.51,0.09],[0.45,0.045],[0.3,0.012],[0,-0.004]].map(p=>new V2(...p)), 32),
+    toon(0x3F86A6, { transparent:true, opacity:0.75, side:THREE.DoubleSide }), g, { pos:[0,mlToY(0.4),0], outline:false, shadow:false, order:2, part:'bureta' });
+  mk(new THREE.LatheGeometry(BURET,32), glassMat(), g, { outline:false, shadow:false, order:3, part:'bureta' });
+  buret.scaleMat = new THREE.MeshBasicMaterial({ transparent:true, depthWrite:false, side:THREE.DoubleSide });
+  mk(new THREE.CylinderGeometry(0.64,0.64,46,24,1,true,Math.PI/4-0.85,1.7), buret.scaleMat, g, { pos:[0,31,0], outline:false, shadow:false, order:4, part:'bureta' });
+  // llave de paso
+  mk(new THREE.CylinderGeometry(0.55,0.55,1.6,18), glassMat(), g, { pos:[0,4,0], rot:[0,0,Math.PI/2], outline:false, shadow:false, order:3, part:'bureta', sub:'llave' });
+  mk(new THREE.CylinderGeometry(0.42,0.42,2.8,18), toon(0xF1F4F6), g, { pos:[0.2,4,0], rot:[0,0,Math.PI/2], part:'bureta', sub:'llave' });
+  buret.handle = new THREE.Group(); buret.handle.position.set(1.75,4,0); buret.handle.rotation.x = Math.PI/2; g.add(buret.handle);
+  mk(box(0.4,2.2,0.75,0.15), toon(0x2E5B9A), buret.handle, { part:'bureta', sub:'llave' });
+  mk(new THREE.CylinderGeometry(0.3,0.3,0.5,12), toon(0xF1F4F6), g, { pos:[-1.45,4,0], rot:[0,0,Math.PI/2], part:'bureta', sub:'llave' });
+  collider(new THREE.CylinderGeometry(1.4,1.4,56,8), g, [0,30,0], 'bureta');
+  collider(new THREE.BoxGeometry(5,2.6,2.4), g, [0.5,4,0], 'bureta', 'llave');
+  parts.bureta.anchors.push(anchor(g,'bureta',[0.7,28,0]));
+  parts.bureta.anchors.push(anchor(g,'llave',[2.1,4,0],'right')); }
+
+// Pinza para bureta (nuez + brazo + mordazas)
+{ const g = newPart('pinza');
+  mk(box(3,3,3,0.4), toon(0x34495E), g, { pos:[0,0,-7.5], part:'pinza' });
+  mk(new THREE.CylinderGeometry(0.35,0.35,2.4,10), toon(0xBAC4CC), g, { pos:[2.4,0,-7.5], rot:[0,0,Math.PI/2], part:'pinza' });
+  mk(new THREE.CylinderGeometry(0.75,0.75,0.8,16), toon(0x1C2630), g, { pos:[3.8,0,-7.5], rot:[0,0,Math.PI/2], part:'pinza' });
+  mk(box(1.1,1.1,6.6,0.25), toon(0x34495E), g, { pos:[0,0,-3.2], part:'pinza' });
+  mk(box(4.6,1.1,1.1,0.25), toon(0x34495E), g, { pos:[0,0,0], part:'pinza' });
+  const jaw = new THREE.TorusGeometry(1.0,0.32,10,24,Math.PI*1.25);
+  mk(jaw, toon(0xC94A3E), g, { pos:[-1.6,0,0], rot:[Math.PI/2,0,-Math.PI*0.62], part:'pinza' });
+  mk(jaw, toon(0xC94A3E), g, { pos:[1.6,0,0], rot:[Math.PI/2,0,Math.PI*0.62+Math.PI], part:'pinza' });
+  collider(new THREE.BoxGeometry(7,3.5,12), g, [0,0,-3], 'pinza');
+  parts.pinza.anchors.push(anchor(g,'pinza',[3,1.2,-3.5])); }
+
+/* ====================== 5) Overlay HTML: hotspots + popup ====================== */
+const overlay = $('#overlay');
+const hotspots = [];
+for (const key of EQUIPO.orden){
+  const host = EQUIPO.partes[key].sub || key;
+  const a = parts[host].anchors.find(x => x.userData.name === key);
+  const p = EQUIPO.partes[key];
+  const dot = document.createElement('button'); dot.className = 'dot'; dot.setAttribute('aria-label', p.nombre);
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = p.tag || p.nombre;
+  for (const el of [dot, tag]){ el.addEventListener('click', () => select(key)); overlay.appendChild(el); }
+  hotspots.push({ key, a, dot, tag, side:a.userData.side, sx:0, sy:0, ty:0 });
+}
+const tmp = new V3();
+function project(obj){ obj.getWorldPosition(tmp).project(camera); const r = stage.getBoundingClientRect();
+  return [ (tmp.x*0.5+0.5)*r.width, (-tmp.y*0.5+0.5)*r.height, tmp.z ]; }
+
+/* ====================== 6) Interacción: picking, cámara animada ====================== */
+const raycaster = new THREE.Raycaster(); const ndc = new V2();
+function pick(ev, list=pickables){
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1);
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster.intersectObjects(list, false)[0] || null;
+}
+let tween = null;
+function flyTo({ target=controls.target.clone(), zoom=camera.zoom, theta=null, phi=null }, dur=900){
+  const off = new V3().subVectors(camera.position, controls.target); const s = new THREE.Spherical().setFromVector3(off);
+  let th = theta ?? s.theta; while (th - s.theta > Math.PI) th -= 2*Math.PI; while (th - s.theta < -Math.PI) th += 2*Math.PI;
+  tween = { t:0, dur: reduceMotion ? 1 : dur, from:{ target:controls.target.clone(), zoom:camera.zoom, theta:s.theta, phi:s.phi },
+            to:{ target, zoom, theta:th, phi: phi ?? s.phi } };
+}
+function stepTween(dt){
+  if (!tween) return; tween.t = Math.min(1, tween.t + dt*1000/tween.dur);
+  const k = 1 - Math.pow(1 - tween.t, 3), f = tween.from, t = tween.to;
+  controls.target.lerpVectors(f.target, t.target, k);
+  camera.zoom = f.zoom + (t.zoom - f.zoom)*k; camera.updateProjectionMatrix();
+  const s = new THREE.Spherical(300, f.phi + (t.phi - f.phi)*k, f.theta + (t.theta - f.theta)*k);
+  camera.position.copy(controls.target).add(new V3().setFromSpherical(s));
+  if (tween.t >= 1) tween = null;
+}
+function focusPart(key){
+  const host = EQUIPO.partes[key].sub || key;
+  if (key === 'llave'){ const p = parts.bureta.anchors[1].getWorldPosition(new V3()); return flyTo({ target:p, zoom:4.2 }); }
+  const b = new THREE.Box3().setFromObject(parts[host].group); const c = b.getCenter(new V3()), size = b.getSize(new V3());
+  const span = Math.max(size.y, Math.max(size.x,size.z)*0.9);
+  flyTo({ target:c, zoom: Math.min(5, Math.max(1.1, VIEW/(span*1.5))) });
+}
+
+function setHighlight(key, on, strength=0.22){
+  const host = key && (EQUIPO.partes[key]?.sub || key); if (!host) return;
+  parts[host].group.traverse(o => { if (!o.isMesh || o.userData.outline) return;
+    if (key === 'llave' && o.userData.sub !== 'llave') return;
+    if (o.material.isMeshToonMaterial){ o.material.emissive.copy(accentColor).multiplyScalar(on?strength:0); }
+    else if (o.material.uniforms?.hi){ o.material.uniforms.hi.value = on ? strength*2.2 : 0; } });
+}
+const accentColor = new THREE.Color();
+
+/* ====================== 7) Modos (misma interfaz: enter / exit / update) ====================== */
+let mode = null, selected = null, hovered = null, labelsOn = true;
+const panel = $('#panel');
+const toastEl = $('#toast'); let toastTimer;
+function toast(msg, kind=''){ toastEl.textContent = msg; toastEl.className = 'toast ' + kind; toastEl.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(()=> toastEl.hidden = true, 3200); }
+
+function select(key){
+  if (mode !== MODES.explorar) return;
+  if (selected) setHighlight(selected, false);
+  selected = key; setHighlight(key, true);
+  const p = EQUIPO.partes[key];
+  $('#popTitle').textContent = p.nombre; $('#popText').textContent = p.corto; $('#popup').hidden = false;
+  renderExplorePanel();
+}
+function deselect(){ if (selected) setHighlight(selected,false); selected = null; $('#popup').hidden = true; $('#leader').setAttribute('d',''); renderExplorePanel(); }
+$('#popClose').onclick = deselect;
+$('#popZoom').onclick = () => selected && focusPart(selected);
+
+function renderExplorePanel(){
+  const chips = EQUIPO.orden.map(k => `<button class="chip" data-k="${k}" aria-pressed="${k===selected}">${EQUIPO.partes[k].nombre}</button>`).join('');
+  if (!selected){
+    panel.innerHTML = `<div class="block"><h4>Modo explorar</h4><h2>Conoce cada pieza</h2></div>
+      <p class="lead">Gira el montaje y toca un punto para ver qué es, cómo se usa y el error típico de cada pieza. Antes de entrar al laboratorio deberías poder nombrarlas todas.</p>
+      <div class="block"><h4>Piezas del montaje · ${EQUIPO.orden.length}</h4><div class="chips">${chips}</div></div>`;
+  } else {
+    const p = EQUIPO.partes[selected];
+    panel.innerHTML = `<div class="block"><h4>Pieza seleccionada</h4><h2>${p.nombre}</h2></div>
+      <div class="spec">${p.dato}</div>
+      <div class="block"><h4>Para qué sirve</h4><p>${p.funcion}</p></div>
+      <div class="block"><h4>Cómo se usa</h4><p>${p.uso}</p></div>
+      <div class="block err"><h4>Error común</h4><p>${p.error}</p></div>
+      <div class="block"><h4>Otras piezas</h4><div class="chips">${chips}</div></div>`;
+  }
+  panel.querySelectorAll('.chip').forEach(b => b.onclick = () => { select(b.dataset.k); focusPart(b.dataset.k); });
+}
+
+const MODES = {
+  /* ---------- 1. EXPLORAR ---------- */
+  explorar: {
+    view(){ return HOME_VIEW; },
+    enter(){ assembleAll(true); overlay.hidden = false; $('#hint').innerHTML = 'Arrastra para girar · rueda para zoom<br>toca un punto para ver la pieza'; renderExplorePanel(); flyTo(this.view()); },
+    exit(){ deselect(); overlay.hidden = true; },
+    click(hit){ if (hit) { select(hit.object.userData.sub === 'llave' ? 'llave' : hit.object.userData.part); } else deselect(); },
+    update(){
+      const r = stage.getBoundingClientRect();
+      for (const h of hotspots){ const [x,y,z] = project(h.a); h.sx=x; h.sy=y; h.vis = !(z>1 || x<-40 || x>r.width+40 || y<-20 || y>r.height+20); }
+      // Anti-solape: en cada lado, ordena por altura y separa las etiquetas al menos 32 px
+      let ties = '';
+      for (const side of ['left','right']){ let last = -1e9;
+        for (const h of hotspots.filter(h=>h.side===side && h.vis).sort((a,b)=>a.sy-b.sy)){ h.ty = Math.max(h.sy, last + 32); last = h.ty; } }
+      for (const h of hotspots){ const L = h.side === 'left', gx = h.sx + (L ? -30 : 30);
+        h.dot.style.display = h.tag.style.display = h.vis ? '' : 'none'; if (!h.vis) continue;
+        h.dot.style.transform = `translate(${h.sx-9}px,${h.sy-9}px)`;
+        h.tag.style.transform = `translate(${gx}px,${h.ty}px) translate(${L?'-100%':'0'},-50%)`;
+        h.dot.classList.toggle('sel', h.key===selected); h.tag.classList.toggle('sel', h.key===selected);
+        ties += `M${h.sx + (L?-9:9)} ${h.sy} L${gx + (L?2:-2)} ${h.ty}`; }
+      $('#ties').setAttribute('d', ties);
+      if (selected){ const h = hotspots.find(h=>h.key===selected); const pr = $('#popup').getBoundingClientRect();
+        const sx = pr.left - r.left + 28, sy = pr.bottom - r.top;
+        $('#leader').setAttribute('d', `M${sx} ${sy} L${sx} ${sy+24} L${h.sx} ${h.sy}`); }
+    }
+  },
+
+  /* ---------- 2. ENSAMBLAR: arrastrar y encajar con grafo de dependencias ---------- */
+  ensamblar: {
+    view(){ const a = stage.clientWidth/stage.clientHeight; return { target:new V3(0,30,4), zoom: Math.min(1.05, a*0.95)*0.85, theta:Math.PI/4 }; },
+    // Cámara 100 % fija: aquí solo importa dónde va cada pieza.
+    enter(){ overlay.hidden = true; scatterAll(); $('#hint').innerHTML = 'Cámara fija en este modo<br>arrastra cada pieza a su silueta';
+      controls.enabled = false; stage.classList.add('locked'); renderAssemblePanel(); flyTo(this.view()); },
+    exit(){ drag = null; for (const k in ghosts) ghosts[k].visible = false; controls.enabled = true; stage.classList.remove('locked'); },
+    update(){ const t = performance.now()/1000;
+      for (const k in ghosts){ const g = ghosts[k]; g.visible = !parts[k].placed && depsOk(k); g.userData.mat.opacity = (drag?.k===k && drag.inside) ? 0.55 : 0.22 + 0.12*Math.sin(t*3); } }
+  },
+
+  /* ---------- 3. OPERAR: máquina de estados sin cálculos ---------- */
+  operar: {
+    view(){ return { target:new V3(0,19,0), zoom:2.1, theta:Math.PI/4 }; },
+    enter(){ overlay.hidden = true; assembleAll(true); $('#hint').innerHTML = 'Toca la llave o el agitador<br>en el modelo o usa el panel'; renderOperatePanel(); flyTo(this.view()); },
+    exit(){ op.llave = 0; op.on = false; drops.forEach(d=>d.mesh.visible=false); drops.length = 0; },
+    click(hit){ if (!hit) return; const p = hit.object.userData;
+      if (p.sub === 'llave'){ setLlave((op.llave+1)%3); }
+      else if (p.part === 'agitador'){ op.on = !op.on; renderOperatePanel(); } },
+    update(dt){ updateOperate(dt); }
+  },
+};
+
+/* ---- Ensamblaje ---- */
+const ASSEMBLY = ['soporte','agitador','pinza','matraz','barra','bureta'];
+const PIECE_HINT = { soporte:'Va sobre la mesa, en el centro.', agitador:'Sobre la base del soporte, delante de la varilla.', pinza:'En la varilla, a la altura de tus ojos.',
+  matraz:'Centrado sobre la placa del agitador.', barra:'Tómala y llévala sobre la boca del matraz: al soltarla cae dentro.', bureta:'Sujeta por la pinza, con la punta en el cuello del matraz.' };
+const SNAP = { soporte:16, agitador:11, pinza:8, matraz:7, barra:6, bureta:9 };   // radio de encaje proporcional al tamaño
+const depsOk = k => (EQUIPO.partes[k].requiere||[]).every(d => parts[d].placed);
+const ghosts = {};
+for (const k of ASSEMBLY){
+  const mat = new THREE.MeshBasicMaterial({ color:0x15212c, transparent:true, opacity:0.18, depthWrite:false });
+  const gh = parts[k].group.clone(true);
+  gh.traverse(o => { if (o.isMesh){ o.material = o.userData.outline || o.material === colliderMat ? colliderMat : mat; o.castShadow = false; o.raycast = ()=>{}; } });
+  gh.userData.mat = mat; gh.visible = false; scene.add(gh); ghosts[k] = gh;
+}
+function scatterAll(){
+  for (const k of ASSEMBLY){ const [x,dy,z,rz] = EQUIPO.scatter[k]; const g = parts[k].group; const h = EQUIPO.home[k];
+    parts[k].placed = false; g.rotation.set(0,0,rz); g.position.set(x, h[1]+dy, z);
+    if (k==='bureta'){ g.position.y = 1.8; } parts[k].rest = g.position.clone(); parts[k].restRot = rz; }
+  flask.level = 4.2; rebuildFlask();
+}
+function assembleAll(instant){ for (const k of ASSEMBLY){ const g = parts[k].group; g.position.set(...EQUIPO.home[k]); g.rotation.set(0,0,0); parts[k].placed = true; } }
+function renderAssemblePanel(){
+  const done = ASSEMBLY.filter(k=>parts[k].placed).length;
+  const items = ASSEMBLY.map((k,i) => { const p = parts[k]; const st = p.placed ? 'done' : depsOk(k) ? 'next' : 'locked';
+    const req = EQUIPO.partes[k].requiere.map(r=>EQUIPO.partes[r].nombre).join(', ');
+    return `<li class="${st}"><span class="st">${p.placed?'✓':i+1}</span><div><b>${EQUIPO.partes[k].nombre}</b>
+      <small>${p.placed ? 'Colocada.' : st==='next' ? PIECE_HINT[k] : 'Antes: ' + req}</small></div></li>`; }).join('');
+  panel.innerHTML = `<div class="block"><h4>Modo ensamblar · ${done}/${ASSEMBLY.length}</h4><h2>${done===ASSEMBLY.length ? 'Montaje completo' : 'Arma el montaje'}</h2></div>
+    <div class="progress" aria-hidden="true"><i style="width:${done/ASSEMBLY.length*100}%"></i></div>
+    <p class="lead">${done===ASSEMBLY.length ? 'Todo en su sitio. Revisa que la bureta esté vertical y pasa a Operar.' : 'Arrastra cada pieza hasta su silueta. Hay varios órdenes válidos, pero algunas piezas necesitan que otra ya esté puesta.'}</p>
+    <ol class="steps">${items}</ol>
+    <button class="btn" id="reAsm">Desarmar de nuevo</button>
+    ${done===ASSEMBLY.length ? '<button class="btn primary" id="goOp">Ir a Operar</button>' : ''}`;
+  $('#reAsm').onclick = () => { scatterAll(); renderAssemblePanel(); };
+  const go = $('#goOp'); if (go) go.onclick = () => setMode('operar');
+}
+let drag = null; const dragPlane = new THREE.Plane(new V3(0,1,0), 0); const hitP = new V3();
+function startDrag(ev){
+  const list = pickables.filter(m => { let g=m; while(g && !g.userData.key) g=g.parent; return g && !parts[g.userData.key].placed; });
+  const hit = pick(ev, list); if (!hit) return false;
+  let g = hit.object; while (!g.userData.key) g = g.parent; const k = g.userData.key;
+  // Al tomar la pieza se "levanta": se mueve en un plano horizontal a la altura de su destino.
+  // Así queda bajo el cursor justo donde la ves, y puede pasar por encima de lo ya montado.
+  dragPlane.constant = -carryY(k);
+  g.rotation.z = 0;                                   // la bureta se pone vertical al levantarla
+  drag = { k }; moveDrag(ev);
+  setHighlight(k, true, 0.18); renderer.domElement.style.cursor = 'grabbing'; return true;
+}
+const LIFT = { barra:15, matraz:3, bureta:3 };        // altura extra al cargarla (la barra va sobre la boca del matraz)
+const carryY = k => EQUIPO.home[k][1] + (LIFT[k] ?? 3);
+const nearHome = k => { const g = parts[k].group, h = EQUIPO.home[k]; return Math.hypot(g.position.x - h[0], g.position.z - h[2]) < SNAP[k]; };
+function moveDrag(ev){ pick(ev, []); if (!raycaster.ray.intersectPlane(dragPlane, hitP)) return;
+  const g = parts[drag.k].group; g.position.set(hitP.x, carryY(drag.k), hitP.z);
+  const m = ghosts[drag.k].userData.mat, inside = nearHome(drag.k); m.color.copy(inside ? accentColor : new THREE.Color(0x15212c)); drag.inside = inside; }
+function endDrag(){
+  const k = drag.k, g = parts[k].group, h = EQUIPO.home[k]; setHighlight(k,false); drag = null; renderer.domElement.style.cursor = '';
+  ghosts[k].userData.mat.color.set(0x15212c);
+  if (nearHome(k)){
+    if (depsOk(k)){ animateTo(g, new V3(...h), 0, () => { parts[k].placed = true; renderAssemblePanel();
+        const n = ASSEMBLY.filter(x=>parts[x].placed).length; toast(n===ASSEMBLY.length ? 'Montaje completo. Bien hecho.' : EQUIPO.partes[k].nombre + ' en su sitio.', 'ok'); });
+      return; }
+    const falta = EQUIPO.partes[k].requiere.filter(r=>!parts[r].placed).map(r=>EQUIPO.partes[r].nombre.toLowerCase());
+    toast(`Aún no: primero coloca ${falta.join(' y ')}.`, 'warn');
+    animateTo(g, parts[k].rest.clone(), parts[k].restRot);
+  } else {                                            // mal colocada: vuelve a su posición original
+    toast(`Ese no es su sitio. ${PIECE_HINT[k]}`, 'warn');
+    animateTo(g, parts[k].rest.clone(), parts[k].restRot); }
+}
+const anims = [];
+function animateTo(g, pos, rz, done){ anims.push({ g, p0:g.position.clone(), p1:pos, r0:g.rotation.z, r1:rz, t:0, done }); }
+function stepAnims(dt){ for (let i=anims.length-1;i>=0;i--){ const a = anims[i]; a.t = Math.min(1, a.t + dt*(reduceMotion?100:2.4)); const k = 1-Math.pow(1-a.t,3);
+  a.g.position.lerpVectors(a.p0, a.p1, k); a.g.position.y += Math.sin(k*Math.PI)*(a.p1.y>a.p0.y?0:1.5); a.g.rotation.z = a.r0 + (a.r1-a.r0)*k;
+  if (a.t>=1){ anims.splice(i,1); a.done?.(); } } }
+
+/* ---- Operación: química real de una titulación HCl + NaOH ----
+   Cada intento genera una muestra con concentración desconocida. El pH se calcula gota a gota
+   por balance de moles, y el color de la fenolftaleína sale de ese pH (no de un volumen fijo).
+   El estudiante lee el menisco y registra las lecturas; el panel ya no le dice el volumen. */
+const QM = {
+  Cb: 0.1000,       // NaOH, mol/L (titulante normalizado)
+  Va: 25.00,        // mL de muestra de HCl (pipeta volumétrica)
+  Vw: 25.0,         // mL de agua destilada añadida al matraz
+  gota: 0.05,       // mL por gota
+  pKa: 9.4,         // fenolftaleína: viraje visible entre pH 8,2 y 10
+  Kw: 1e-14,
+  tol: 0.03,        // tolerancia de lectura de la bureta (±0,03 mL)
+};
+const op = {};
+const LLAVE_ANG = [Math.PI/2, Math.PI/2-0.55, 0];
+const RATE = [0, 2.2, 11];                   // gotas por segundo
+const SPEED = [0, 7, 13, 22];
+const drops = []; const dropPool = [];
+const dropGeo = new THREE.SphereGeometry(0.2,10,8);
+for (let i=0;i<40;i++){ const m = new THREE.Mesh(dropGeo, buret.liqMat); m.visible=false; m.renderOrder=2; scene.add(m); dropPool.push(m); }
+const CLEAR = new THREE.Color(0xEAF4F7), PINK = new THREE.Color(0xF4A3C6), DEEP = new THREE.Color(0xE0559A), tmpC = new THREE.Color();
+const fmt = (x, d=2) => x.toFixed(d).replace('.', ',');
+const parseMl = str => { const v = parseFloat(String(str).trim().replace(',', '.')); return Number.isFinite(v) ? v : null; };
+function rebuildFlask(){ flask.liq.geometry.dispose(); flask.liq.geometry = liquidGeo(flask.level); flask.builtLevel = flask.level; }
+function syncBuret(ml){ const y = mlToY(ml); buret.col.scale.y = Math.max(0.01, y - 6); buret.men.position.y = y; }
+
+// pH exacto de la mezcla (ácido fuerte + base fuerte), incluyendo la autoionización del agua
+function chem(){
+  const Vb = op.lectura - op.vi, nA = op.Ca*QM.Va, nB = QM.Cb*Vb, V = QM.Va + QM.Vw + Vb;   // mmol y mL → mol/L
+  const d = (nA - nB)/V, h = (d + Math.sqrt(d*d + 4*QM.Kw))/2, pH = -Math.log10(h);
+  return { Vb, pH, f: 1/(1 + Math.pow(10, QM.pKa - pH)), acid: Math.max(0, (nA - nB)/nA) };
+}
+function newSample(){
+  const Ca = Math.round((0.0800 + Math.random()*0.0400)*10000)/10000;          // 0,0800–0,1200 M
+  const vi = Math.round((0.15 + Math.random()*1.35)*100)/100;                   // lectura inicial real
+  Object.assign(op, { Ca, vi, lectura:vi, veq: Ca*QM.Va/QM.Cb, viUser:null, vfUser:null, done:false,
+    on:false, speed:1, llave:0, flash:0, dropT:0 });
+  drops.forEach(d => d.mesh.visible = false); drops.length = 0;
+  flask.level = 4.2; rebuildFlask(); syncBuret(op.lectura);
+}
+function resetOperate(){ newSample(); renderOperatePanel(); }
+function setLlave(v){
+  if (op.done) return;
+  if (v > 0 && op.viUser === null){ toast('Primero lee la bureta y registra la lectura inicial.', 'warn'); return; }
+  op.llave = v; renderOperatePanel();
+}
+function lookAtMeniscus(){
+  const p = buret.men.getWorldPosition(new V3());
+  flyTo({ target:p, zoom:26, theta:Math.PI/4, phi:Math.PI/2 }, 1000);            // a la altura del ojo: sin paralaje
+}
+function colorName(c, flash){ return c.f >= 0.6 ? 'Rosa persistente' : c.f >= 0.07 ? 'Rosa pálido persistente' : flash > 0.15 ? 'Rosa que desaparece' : 'Incoloro'; }
+
+function opStatus(){
+  const c = chem();
+  if (op.done) return ['', 'Práctica terminada. Revisa tus resultados abajo.'];
+  if (op.viUser === null) return ['', 'Muestra lista. Acércate a la bureta, lee la parte baja del menisco y registra la lectura inicial.'];
+  if (c.f >= 0.07) return ['ok', 'Rosa persistente: llegaste al punto final. Cierra la llave, lee la bureta y registra la lectura final.'];
+  if (op.llave === 2 && c.acid < 0.12) return ['warn', 'El rosa tarda cada vez más en irse: estás cerca. Pasa a gota a gota.'];
+  if (op.llave > 0 && !op.on) return ['warn', 'Sin agitación las gotas no se mezclan y quedan zonas rosadas que engañan. Enciende el agitador.'];
+  if (op.on && op.speed === 3) return ['warn', 'Velocidad alta: la barra puede desacoplarse, saltar y salpicar. Baja a media.'];
+  if (op.llave > 0) return ['', 'Cada gota deja una mancha rosa que desaparece al mezclarse: aún queda ácido.'];
+  return ['', 'Lectura inicial registrada. Enciende el agitador y abre la llave.'];
+}
+function grade(user, real){ const e = Math.abs(user - real);
+  return e <= QM.tol ? ['tag-ok','Correcta'] : e <= 0.10 ? ['tag-warn','Cerca'] : ['tag-warn','Incorrecta']; }
+
+function resultsHTML(){
+  const vfReal = op.lectura, gi = grade(op.viUser, op.vi), gf = grade(op.vfUser, vfReal);
+  const V = op.vfUser - op.viUser, C = QM.Cb*V/QM.Va, err = (C - op.Ca)/op.Ca*100;
+  const exceso = (vfReal - op.vi) - op.veq, gotas = Math.round(exceso/QM.gota);
+  const fin = exceso < 0
+    ? `<p class="tag-warn">Te detuviste antes del punto de equivalencia: faltaban unas ${Math.max(1, -gotas)} gotas.</p>`
+    : gotas <= 1 ? `<p class="tag-ok">Cerraste la llave en la gota justa del punto final.</p>`
+    : `<p class="tag-warn">Te pasaste unas ${gotas} gotas del punto final. El color no avisa cuánto te pasaste: solo la lectura lo revela.</p>`;
+  const tipLectura = (gi[1] !== 'Correcta' || gf[1] !== 'Correcta')
+    ? `<p class="note">Lee la parte más baja del menisco con la vista a su altura y estima el centésimo entre dos divisiones de 0,1 mL.</p>` : '';
+  return `<div class="block"><h4>Tus resultados</h4>
+    <table class="res"><thead><tr><th></th><th>Tu lectura</th><th>Real</th><th></th></tr></thead><tbody>
+      <tr><td>Inicial</td><td class="n">${fmt(op.viUser)} mL</td><td class="n">${fmt(op.vi)} mL</td><td class="${gi[0]}">${gi[1]}</td></tr>
+      <tr><td>Final</td><td class="n">${fmt(op.vfUser)} mL</td><td class="n">${fmt(vfReal)} mL</td><td class="${gf[0]}">${gf[1]}</td></tr>
+    </tbody></table></div>
+    ${tipLectura}${fin}
+    <div class="block"><h4>Cálculo con tus lecturas</h4>
+      <div class="calc">V<sub>NaOH</sub> = ${fmt(op.vfUser)} − ${fmt(op.viUser)} = ${fmt(V)} mL<br>
+      C<sub>HCl</sub> = C<sub>NaOH</sub> · V<sub>NaOH</sub> / V<sub>HCl</sub><br>
+      C<sub>HCl</sub> = ${fmt(QM.Cb,4)} · ${fmt(V)} / ${fmt(QM.Va)} = <b>${fmt(C,4)} M</b></div></div>
+    <table class="res"><tbody>
+      <tr><td>Concentración real de la muestra</td><td class="n">${fmt(op.Ca,4)} M</td></tr>
+      <tr><td>Error relativo</td><td class="n ${Math.abs(err) <= 0.5 ? 'tag-ok' : 'tag-warn'}">${err >= 0 ? '+' : '−'}${fmt(Math.abs(err),1)} %</td></tr>
+    </tbody></table>
+    <p class="note">En una titulación bien hecha el error suele quedar por debajo del 0,5 %. Pasarse del punto final da un error positivo.</p>`;
+}
+
+function renderOperatePanel(){
+  const [kind, msg] = opStatus(), c = chem(), canFinal = op.viUser !== null && !op.done && op.llave === 0 && c.Vb > 0;
+  panel.innerHTML = `<div class="block"><h4>Modo operar</h4><h2>Titula y calcula</h2></div>
+    <div class="sample"><span>Matraz: <b>${fmt(QM.Va)} mL</b> de HCl de concentración desconocida, ~${QM.Vw} mL de agua y 2 gotas de fenolftaleína.</span>
+      <span>Bureta: NaOH <b>${fmt(QM.Cb,4)} M</b>.</span></div>
+    <div class="ctl"><h4>1 · Lectura inicial</h4>
+      <div class="rin-row"><button class="btn" id="look">Leer la bureta de cerca</button></div>
+      <div class="rin-row"><input class="rin" id="vi" inputmode="decimal" placeholder="0,00" aria-label="Lectura inicial en mL" value="${op.viUser !== null ? fmt(op.viUser) : ''}" ${op.viUser !== null ? 'disabled' : ''}>
+        <span class="note">mL</span>
+        ${op.viUser === null ? '<button class="btn primary" id="regVi">Registrar</button>' : '<span class="tag-ok">Registrada</span>'}</div></div>
+    <div class="ctl"><h4>2 · Titular</h4>
+      <div class="seg" role="group" aria-label="Agitador"><button id="pwOff" aria-pressed="${!op.on}">Agitador apagado</button><button id="pwOn" aria-pressed="${op.on}">Encendido</button></div>
+      <div class="seg" role="group" aria-label="Velocidad">${['Lenta','Media','Rápida'].map((t,i)=>`<button data-sp="${i+1}" aria-pressed="${op.speed===i+1}" ${op.on?'':'disabled'}>${t}</button>`).join('')}</div>
+      <div class="seg" role="group" aria-label="Llave">${['Llave cerrada','Gota a gota','Abierta'].map((t,i)=>`<button data-ll="${i}" aria-pressed="${op.llave===i}" ${op.done?'disabled':''}>${t}</button>`).join('')}</div></div>
+    <div class="swatch"><i id="sw"></i><div><h4>Color en el matraz</h4><span id="swt">${colorName(c, op.flash)}</span></div></div>
+    <div class="state ${kind}" id="st">${msg}</div>
+    <div class="ctl"><h4>3 · Lectura final</h4>
+      <div class="rin-row"><input class="rin" id="vf" inputmode="decimal" placeholder="0,00" aria-label="Lectura final en mL" value="${op.vfUser !== null ? fmt(op.vfUser) : ''}" ${canFinal ? '' : 'disabled'}>
+        <span class="note">mL</span>${op.done ? '<span class="tag-ok">Registrada</span>' : `<button class="btn primary" id="regVf" ${canFinal ? '' : 'disabled'}>Registrar</button>`}</div>
+      ${!op.done && !canFinal ? '<span class="note">Se habilita con la llave cerrada y algo de titulante añadido.</span>' : ''}</div>
+    ${op.done ? resultsHTML() : ''}
+    <details class="ph"><summary>Ver el pH calculado (como un pH-metro)</summary><div><span class="v" id="ph">${fmt(c.pH)}</span></div></details>
+    <button class="btn" id="opReset">Nueva muestra</button>`;
+  $('#look').onclick = lookAtMeniscus;
+  const regVi = $('#regVi'); if (regVi) regVi.onclick = () => {
+    const v = parseMl($('#vi').value); if (v === null || v < 0 || v > 50){ toast('Escribe una lectura entre 0 y 50 mL, por ejemplo 0,45.', 'warn'); return; }
+    op.viUser = v; renderOperatePanel(); flyTo(MODES.operar.view()); };
+  const regVf = $('#regVf'); if (regVf) regVf.onclick = () => {
+    const v = parseMl($('#vf').value); if (v === null || v < 0 || v > 50){ toast('Escribe una lectura entre 0 y 50 mL.', 'warn'); return; }
+    if (v <= op.viUser){ toast('La lectura final debe ser mayor que la inicial: la escala crece hacia abajo.', 'warn'); return; }
+    op.vfUser = v; op.done = true; op.llave = 0; renderOperatePanel(); };
+  for (const id of ['vi','vf']){ const el = $('#'+id); el?.addEventListener('keydown', e => { if (e.key === 'Enter') (id === 'vi' ? regVi : regVf)?.click(); }); }
+  $('#pwOff').onclick = () => { op.on=false; renderOperatePanel(); }; $('#pwOn').onclick = () => { op.on=true; renderOperatePanel(); };
+  panel.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { op.speed = +b.dataset.sp; renderOperatePanel(); });
+  panel.querySelectorAll('[data-ll]').forEach(b => b.onclick = () => setLlave(+b.dataset.ll));
+  $('#opReset').onclick = () => { resetOperate(); flyTo(MODES.operar.view()); };
+  op.lastKey = kind + msg + colorName(c, op.flash) + (op.llave === 0 && c.Vb > 0);
+}
+
+function updateOperate(dt){
+  // llave y agitador (animación de piezas)
+  buret.handle.rotation.x += (LLAVE_ANG[op.llave] - buret.handle.rotation.x) * Math.min(1, dt*10);
+  stir.knob.rotation.y += ((op.on ? -op.speed*1.4 : 0.6) - stir.knob.rotation.y) * Math.min(1, dt*8);
+  stir.ledMat.color.set(op.on ? 0x3ED37A : 0x55606a);
+  if (op.on) bar.mesh.parent.rotation.y += SPEED[op.speed]*dt;
+  bar.mesh.parent.position.y = EQUIPO.home.barra[1] + (op.on && op.speed===3 ? Math.abs(Math.sin(performance.now()/90))*0.5 : 0);
+  // gotas: cada una suma 0,05 mL a la lectura real de la bureta
+  if (op.llave > 0 && op.lectura < 49.9){ op.dropT += dt*RATE[op.llave];
+    while (op.dropT >= 1){ op.dropT -= 1; const m = dropPool.find(p=>!p.visible); if (!m) break;
+      m.visible = true; m.position.set(0, EQUIPO.home.bureta[1]-0.1, 0); drops.push({ mesh:m, v:0 }); op.lectura = Math.min(50, op.lectura + QM.gota); } }
+  const surf = EQUIPO.home.matraz[1] + flask.level;
+  for (let i=drops.length-1;i>=0;i--){ const d = drops[i]; d.v -= 70*dt; d.mesh.position.y += d.v*dt;
+    if (d.mesh.position.y < surf){ d.mesh.visible=false; drops.splice(i,1); flask.level += 0.0022;
+      op.flash = Math.min(1, op.flash + 0.35); } }       // donde cae la gota el pH local sube y se ve rosa
+  const c = chem();
+  // La mancha local desaparece a la velocidad con que el ácido restante la neutraliza:
+  // con mucho ácido se va al instante; cerca del punto final tarda. Sin agitación, tarda siempre.
+  const mix = op.on ? 0.6 + op.speed*0.8 : 0.15;
+  op.flash = Math.max(0, op.flash - dt*mix*(0.8 + 40*c.acid));
+  if (flask.level - flask.builtLevel > 0.02) rebuildFlask();
+  // Color global: fracción de fenolftaleína en su forma rosada (sale del pH), más la mancha local
+  const k = Math.max(c.f, c.acid > 0 ? op.flash*0.55 : 0);
+  if (k < 0.5) tmpC.copy(CLEAR).lerp(PINK, k*2); else tmpC.copy(PINK).lerp(DEEP, (k-0.5)*2);
+  flask.liqMat.color.copy(tmpC);
+  syncBuret(op.lectura);
+  const sw = $('#sw'); if (sw) sw.style.background = '#' + tmpC.getHexString();
+  const ph = $('#ph'); if (ph) ph.textContent = fmt(c.pH);
+  // re-render del panel solo cuando cambia el estado (no 60 veces por segundo); sin perder lo que se está escribiendo
+  const [kind,msg] = opStatus(), key = kind + msg + colorName(c, op.flash) + (op.llave === 0 && c.Vb > 0);
+  if (key !== op.lastKey){
+    const active = document.activeElement?.id;
+    if (active === 'vi' || active === 'vf'){ const st = $('#st'), swt = $('#swt'); st.className = 'state '+kind; st.textContent = msg; swt.textContent = colorName(c, op.flash); }
+    else renderOperatePanel();
+  }
+}
+newSample();
+
+/* ====================== 8) Cambio de modo y eventos ====================== */
+function setMode(name){
+  if (mode === MODES[name]) return; mode?.exit(); mode = MODES[name];
+  document.querySelectorAll('.modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode===name));
+  if (name !== 'operar'){ syncBuret(0.40); flask.liqMat.color.copy(CLEAR); bar.mesh.parent.rotation.y = 0; stir.ledMat.color.set(0x55606a);
+    buret.handle.rotation.x = LLAVE_ANG[0]; stir.knob.rotation.y = 0; flask.level = 4.2; rebuildFlask(); }
+  if (name === 'operar') resetOperate();
+  mode.enter();
+}
+document.querySelectorAll('.modes button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', ev => {
+  downAt = [ev.clientX, ev.clientY];
+  if (mode === MODES.ensamblar && ev.button === 0 && startDrag(ev)){ renderer.domElement.setPointerCapture(ev.pointerId); ev.stopImmediatePropagation(); }
+}, { capture:true });   // capture: decidimos antes que OrbitControls si es arrastre de pieza o de cámara
+renderer.domElement.addEventListener('pointermove', ev => {
+  if (drag){ moveDrag(ev); return; }
+  if (mode === MODES.ensamblar){ if (!ev.buttons){ const loose = pickables.filter(m => { let g=m; while(g && !g.userData.key) g=g.parent; return g && !parts[g.userData.key].placed; });
+      renderer.domElement.style.cursor = pick(ev, loose) ? 'grab' : ''; } return; }
+  if (ev.buttons) return;
+  const hit = pick(ev); const key = hit ? (hit.object.userData.sub === 'llave' ? 'llave' : hit.object.userData.part) : null;
+  const clickable = mode === MODES.explorar ? key : (key === 'llave' || key === 'agitador') ? key : null;
+  if (clickable !== hovered){ if (hovered && hovered !== selected) setHighlight(hovered,false); hovered = clickable; if (hovered && hovered !== selected) setHighlight(hovered,true,0.12); }
+  renderer.domElement.style.cursor = clickable ? 'pointer' : '';
+});
+renderer.domElement.addEventListener('pointerup', ev => {
+  if (drag){ endDrag(); return; }
+  if (!downAt || Math.hypot(ev.clientX-downAt[0], ev.clientY-downAt[1]) > 5) return;
+  mode.click?.(pick(ev));
+});
+// la barra de herramientas rota alrededor del objetivo actual
+const curTheta = () => new THREE.Spherical().setFromVector3(new V3().subVectors(camera.position, controls.target)).theta;
+$('#tRotL').onclick = () => flyTo({ theta: curTheta() - Math.PI/4 }, 600);
+$('#tRotR').onclick = () => flyTo({ theta: curTheta() + Math.PI/4 }, 600);
+$('#tIn').onclick  = () => flyTo({ zoom: Math.min(controls.maxZoom, camera.zoom*1.35) }, 350);
+$('#tOut').onclick = () => flyTo({ zoom: Math.max(controls.minZoom, camera.zoom/1.35) }, 350);
+$('#tHome').onclick = () => flyTo(mode.view());
+$('#tLabels').onclick = e => { labelsOn = !labelsOn; e.currentTarget.setAttribute('aria-pressed', labelsOn); stage.classList.toggle('labels-off', !labelsOn); };
+
+/* ---- Tema: los colores 3D salen de los mismos tokens CSS ---- */
+function applyTheme(){
+  outlineMat.uniforms.c.value.set(cssVar('--ink3d'));
+  accentColor.set(cssVar('--accent'));
+  for (const m of glassMats){ m.uniforms.tint.value.set(cssVar('--glass')); m.uniforms.ink.value.set(cssVar('--glassink')); m.uniforms.acc.value.set(cssVar('--accent')); }
+  grid.material.color.set(cssVar('--grid')); benchMat.color.set(cssVar('--bench'));
+  buret.scaleMat.map?.dispose(); buret.scaleMat.map = gradTexture(cssVar('--ink3d')); buret.scaleMat.needsUpdate = true;
+  if (selected) setHighlight(selected, true);
+}
+document.fonts?.ready.then(applyTheme);
+
+function resize(){ const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+  renderer.setSize(w, h, false); const a = w/h;
+  camera.left = -VIEW*a/2; camera.right = VIEW*a/2; camera.top = VIEW/2; camera.bottom = -VIEW/2; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(stage);
+renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('El navegador reinició el 3D. Recarga si no vuelve solo.', 'warn'); });
+
+/* ====================== 9) Bucle de render ====================== */
+applyTheme(); resize();
+syncBuret(0.40);
+setMode('explorar');
+$('#loading').remove();
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  stepTween(dt); stepAnims(dt); controls.update(); mode.update(dt);
+  renderer.render(scene, camera);
+});
+</script>
