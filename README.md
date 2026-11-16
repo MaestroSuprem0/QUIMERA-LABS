@@ -2,6 +2,8 @@
 
 Equipos de laboratorio de química en 3D interactivo, parte del **Proyecto QUIMERA** (Química, Innovación, Modelado, Experimentación, Recursos, Aprendizaje).
 
+Desarrollado por **Isai Severiano Felix Sopla** · ACS UNMSM Student Chapter.
+
 El objetivo es que el estudiante conozca el equipo, sepa armarlo y lo haya operado antes de pisar el laboratorio real.
 
 **Sitio:** https://maestrosuprem0.github.io/QUIMERA-LABS/
